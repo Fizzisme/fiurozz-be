@@ -92,7 +92,7 @@ POST /v1/projects
             "direct": {
               "host": "db.prisma.io",
               "port": 5432,
-              "connectionString": "postgres://user:pass@db.prisma.io:5432/postgres?sslmode=require"
+              "connectionString": "postgres://account:pass@db.prisma.io:5432/postgres?sslmode=require"
             }
           }
         }
@@ -184,7 +184,7 @@ Creates a new named connection string for a database. Use for per-developer or p
       "direct": {
         "host": "db.prisma.io",
         "port": 5432,
-        "connectionString": "postgres://user:pass@db.prisma.io:5432/postgres?sslmode=require"
+        "connectionString": "postgres://account:pass@db.prisma.io:5432/postgres?sslmode=require"
       }
     },
     "database": {

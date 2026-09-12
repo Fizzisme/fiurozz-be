@@ -22,7 +22,7 @@ func Logger() gin.HandlerFunc {
 		// May be nil if no upstream middleware has set a request ID yet.
 		requestID, _ := c.Get(constants.ContextRequestID)
 
-		
+		deviceName, _ := c.Get(constants.ContextDeviceName)
 
 		c.Next()
 
@@ -47,6 +47,7 @@ func Logger() gin.HandlerFunc {
 			zap.Int("response_bytes", c.Writer.Size()),
 			zap.Duration("duration", time.Since(start)),
 			zap.String("client_ip", c.ClientIP()),
+			zap.Any("device_name", deviceName),
 			zap.String("user_agent", c.Request.UserAgent()),
 		}
 

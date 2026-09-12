@@ -12,11 +12,11 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id String @id @default(uuid())
+model Account {
+  id String @id @db.Uuid
   fullName String @map("full_name")
   displayName String @unique @map("display_name")
-  email String @unique
+  email String? @unique
   passwordHash String? @map("password_hash")
   emailVerified Boolean @default(false) @map("email_verified")
   status String @default("ACTIVE")
@@ -28,26 +28,27 @@ model User {
   oauthAccounts OauthAccount[]
   refreshTokens RefreshToken[]
 
-  @@map("users")
+  @@map("accounts")
 }
 
 model OauthAccount {
-  id String @id @default(uuid())
-  userId String @map("user_id")
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
   provider String
-  providerUserId String @map("provider_user_id")
-  providerEmail String @map("provider_email")
+  providerAccountId String @map("provider_account_id")
+  providerEmail String? @map("provider_email")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@map("oauth_accounts")
 
 }
 
 model RefreshToken {
-  id String @id @default(uuid())
-  userId String @map("user_id")
+  id String @id @db.Uuid
+  jti String @unique
+  accountId String @map("account_id") @db.Uuid
   tokenHash String @map("token_hash")
   deviceName String? @map("device_name")
   userAgent String? @map("user_agent")
@@ -58,7 +59,21 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
   lastUsedAt DateTime @default(now()) @map("last_used_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  eventType   String    @map("event_type")
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at")
+  processedAt DateTime? @map("processed_at")
+  attempts    Int       @default(0)
+  status      String    @default("pending")
+
+  @@index([status, processedAt, createdAt])
+  @@map("outbox_events")
 }

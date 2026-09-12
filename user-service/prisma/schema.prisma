@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Gender {
+  UNKNOWN
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum SocialPlatform {
+  GITHUB
+  GITLAB
+  LINKEDIN
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  YOUTUBE
+  DISCORD
+  WEBSITE
+  DRIBBBLE
+  BEHANCE
+  OTHER
+}
+
+model User {
+  id String @id @db.Uuid
+  profile   UserProfile?
+  settings  UserSetting?
+  links     SocialLink[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("users")
+}
+
+model UserProfile {
+  userId String @id @db.Uuid
+
+  email String @unique
+
+  displayName String @map("display_name") @db.VarChar(100)
+
+  fullName String? @map("full_name") @db.VarChar(150)
+
+  avatarUrl String? @map("avatar_url")
+
+  coverUrl String? @map("cover_url")
+
+  bio String? @db.VarChar(500)
+
+  occupation String? @db.VarChar(100)
+
+  company String? @db.VarChar(100)
+
+  location String? @db.VarChar(100)
+
+  birthday DateTime? @db.Date
+
+  website String?
+
+  gender Gender @default(UNKNOWN)
+
+  language String @default("en") @db.VarChar(10)
+
+  timezone String @default("UTC") @db.VarChar(50)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([displayName])
+  @@map("user_profiles")
+}
+
+model UserSetting {
+  userId String @id @db.Uuid
+
+  isPrivate Boolean @default(false) @map("is_private")
+
+  showEmail Boolean @default(false) @map("show_email")
+
+  showBirthday Boolean @default(false) @map("show_birthday")
+
+  allowMessage Boolean @default(true) @map("allow_message")
+
+  locale String @default("en")
+
+  theme String @default("system")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model SocialLink {
+  id String @id @default(uuid()) @db.Uuid
+
+  userId String @map("user_id") @db.Uuid
+
+  platform SocialPlatform
+
+  title String? @db.VarChar(50)
+
+  url String
+
+  order Int @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("social_links")
+}

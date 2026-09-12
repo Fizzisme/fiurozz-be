@@ -40,6 +40,8 @@ func RegisterRoutes(
             Prefix: r.Prefix,
             Proxy: p,
 
+            Auth: r.AuthMode,
+
             RateLimit: &ratelimit.RateLimitConfig{
                 Requests: r.RateLimit.Requests,
                 Window:   r.RateLimit.Window,

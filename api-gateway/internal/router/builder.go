@@ -21,10 +21,9 @@ func buildHandlers(
 
 	handlers := make([]gin.HandlerFunc, 0)
 
-
 	handlers = append(
     		handlers,
-    		middleware.JWTAuth(jwtService),
+    		middleware.JWTAuth(jwtService, route.Auth),
     )
 
 	if route.RateLimit != nil {

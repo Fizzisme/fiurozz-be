@@ -14,6 +14,8 @@ type RouteConfig struct {
     Breaker BreakerConfig `yaml:"breaker"`
 
     RateLimit RateLimitConfig `yaml:"rate_limit"`
+
+    AuthMode AuthMode `yaml:"auth_mode"`
 }
 
 type RetryConfig struct {
@@ -31,3 +33,13 @@ type RateLimitConfig struct {
     Window   time.Duration `yaml:"window"`
     Burst    int           `yaml:"burst"`
 }
+
+type AuthMode string
+
+const (
+    AuthNone AuthMode = "none"
+
+    AuthOptional AuthMode = "optional"
+
+    AuthRequired AuthMode = "required"
+)

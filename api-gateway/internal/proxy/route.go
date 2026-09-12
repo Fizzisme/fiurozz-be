@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"time"
+
+	"github.com/fizzisme/api-gateway/internal/config"
 	"github.com/fizzisme/api-gateway/internal/ratelimit"
 )
 
@@ -18,4 +20,6 @@ type Route struct {
 	Burst int
 
 	Timeout time.Duration
+
+	Auth config.AuthMode
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/sony/gobreaker/v2"
 	"github.com/fizzisme/api-gateway/internal/resilience"
 	"github.com/fizzisme/api-gateway/internal/constants"
+	"go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/propagation"
 )
 
 // ReverseProxy wraps httputil.ReverseProxy for a single backend
@@ -106,6 +108,17 @@ func New(target string,
             constants.HeaderRequestID,
             pr.In.Header.Get(constants.HeaderRequestID),
         )
+
+		// Propagate OpenTelemetry trace context to downstream service.
+		otel.GetTextMapPropagator().Inject(
+			pr.Out.Context(),
+			propagation.HeaderCarrier(pr.Out.Header),
+		)
+
+		logger.Log.Info(
+			"traceparent",
+			zap.String("value", pr.Out.Header.Get("traceparent")),
+		)
     }
 
 	// Return a generic 502 to the client on backend failures

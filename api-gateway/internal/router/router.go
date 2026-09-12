@@ -11,6 +11,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
 	"github.com/fizzisme/api-gateway/internal/logger"
+	"github.com/gin-contrib/cors"
+	"time"
 )
 
 // SetupRouter builds the Gin engine for the gateway: global
@@ -31,15 +33,47 @@ func SetupRouter(
         )
     }
 
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:3000",
+		},
+
+		AllowMethods: []string{
+			"GET",
+			"POST",
+			"PUT",
+			"PATCH",
+			"DELETE",
+			"OPTIONS",
+		},
+
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Accept",
+			"Authorization",
+		},
+
+		ExposeHeaders: []string{
+			"Content-Length",
+		},
+
+		AllowCredentials: true,
+
+		MaxAge: 12 * time.Hour,
+	}))
+
 	// Global middleware chain, applied to every route, in order:
 	//   1. Recovery    - recovers panics from route handlers
 	//   2. RequestID   - assigns a request ID, used by Logger below
+	//   3. ClientInfo
 	//   3. otelgin     - starts a tracing span for the request
 	//   4. Logger      - logs method/path/status/duration/request ID
 	//   5. Metrics     - records request count + latency in Prometheus
 	r.Use(
 		gin.Recovery(),
 		middleware.RequestID(),
+		middleware.ClientInfo(),
 		otelgin.Middleware(cfg.AppName),
 		middleware.Logger(),
 		middleware.Metrics(),

@@ -8,13 +8,4 @@ export class LoginDto {
     @IsString()
     @MinLength(8)
     password: string;
-
-    @IsString()
-    deviceName: string;
-
-    @IsString()
-    userAgent: string;
-
-    @IsString()
-    ipAddress: string;
 }

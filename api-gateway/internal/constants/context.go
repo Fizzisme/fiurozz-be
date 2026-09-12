@@ -6,4 +6,5 @@ const (
 	ContextRole      = "role"
 	ContextEmail     = "email"
 	ContextClaims    = "claims"
+	ContextDeviceName = "device_name"
 )
