@@ -24,6 +24,9 @@ public class ProjectSubCategoryJpaEntity {
     private String slug;
     private String title;
 
+    @Column(name = "sort_order")
+    private int sortOrder;
+
     @Column(name = "is_active")
     private boolean active;
 
@@ -51,6 +54,10 @@ public class ProjectSubCategoryJpaEntity {
 
     public String getTitle() {
         return title;
+    }
+
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public ProjectCategoryJpaEntity getCategory() {

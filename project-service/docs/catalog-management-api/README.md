@@ -653,7 +653,7 @@ Errors: `400`.
 ## 12. Get Public Project by Owner and Slug
 
 ```http
-GET /api/v1/owners/{ownerId}/projects/{slug}
+GET /v1/owners/{ownerId}/projects/{slug}
 ```
 
 The owner must be present in the path because the database guarantees active
@@ -677,7 +677,7 @@ Errors: `400`, `404`.
 ## 13. List Project Categories
 
 ```http
-GET /api/v1/categories
+GET /v1/categories
 ```
 
 Always apply:
@@ -715,7 +715,7 @@ Success: `200 OK`.
 ## 14. List Project Subcategories
 
 ```http
-GET /api/v1/categories/{categoryId}/subcategories
+GET /v1/categories/{categoryId}/subcategories
 ```
 
 Always apply:
@@ -756,7 +756,7 @@ Errors: `400`, `404`.
 ## 15. Search Project Tags
 
 ```http
-GET /api/v1/tags?q=spring&page=0&size=20
+GET /v1/tags?q=spring&page=0&size=20
 ```
 
 Always apply:

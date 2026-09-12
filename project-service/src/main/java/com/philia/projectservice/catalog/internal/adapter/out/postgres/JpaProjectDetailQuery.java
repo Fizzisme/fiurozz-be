@@ -29,6 +29,12 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
         return projectRepository.findActiveDetailById(projectId).map(this::toResult);
     }
 
+    @Override
+    public Optional<ProjectDetailResult> findPublicByOwnerAndSlug(UUID ownerId, String slug) {
+        if (ownerId == null || slug == null || slug.isBlank()) return Optional.empty();
+        return projectRepository.findPublicDetailByOwnerAndSlug(ownerId, slug.trim()).map(this::toResult);
+    }
+
     private ProjectDetailResult toResult(ProjectJpaEntity project) {
         var subCategory = project.getSubCategory();
         var category = subCategory.getCategory();
