@@ -1,9 +1,9 @@
 package com.philia.projectservice.catalog.internal.application.port.out;
 
-import com.philia.projectservice.catalog.api.ProjectPageResult;
-import com.philia.projectservice.catalog.api.ProjectSummaryResult;
+import com.philia.projectservice.catalog.api.ProjectCursorResult;
+import com.philia.projectservice.catalog.api.PublicProjectCardResult;
 import com.philia.projectservice.catalog.api.PublicProjectSearchQuery;
 
 public interface PublicProjectQuery {
-    ProjectPageResult<ProjectSummaryResult> search(PublicProjectSearchQuery query);
+    ProjectCursorResult<PublicProjectCardResult> search(PublicProjectSearchQuery query);
 }

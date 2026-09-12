@@ -29,7 +29,10 @@ public class JpaCatalogBrowseQuery implements CatalogBrowseQuery {
                 .map(value -> new SubCategory(value.getId(), categoryId, value.getKey(), value.getSlug(), value.getTitle(), value.getSortOrder())).toList();
     }
     @Override public TagPage searchTags(String query, int page, int size) {
-        var result = tags.searchActive(query == null || query.isBlank() ? null : query.trim(), PageRequest.of(page, size));
+        var pageable = PageRequest.of(page, size);
+        var result = query == null || query.isBlank()
+                ? tags.findActive(pageable)
+                : tags.searchActive(query.trim(), pageable);
         return new TagPage(result.getContent().stream().map(tag -> new Tag(tag.getId(), tag.getSlug(), tag.getDisplayName())).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
     }

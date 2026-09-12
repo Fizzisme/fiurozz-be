@@ -16,9 +16,17 @@ import java.util.UUID;
 public class JpaProjectDetailQuery implements ProjectDetailQuery {
 
     private final JpaProjectDetailRepository projectRepository;
+    private final JpaProjectMediaRepository mediaRepository;
+    private final JpaProjectRepositoryLinkRepository repositoryLinkRepository;
 
-    public JpaProjectDetailQuery(JpaProjectDetailRepository projectRepository) {
+    public JpaProjectDetailQuery(
+            JpaProjectDetailRepository projectRepository,
+            JpaProjectMediaRepository mediaRepository,
+            JpaProjectRepositoryLinkRepository repositoryLinkRepository
+    ) {
         this.projectRepository = projectRepository;
+        this.mediaRepository = mediaRepository;
+        this.repositoryLinkRepository = repositoryLinkRepository;
     }
 
     @Override
@@ -57,7 +65,9 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
                 project.getShortDescription(),
                 project.getDescription(),
                 project.getThumbnailUrl(),
+                mediaRepository.findImageUrlsByProjectId(project.getId()),
                 project.getDemoUrl(),
+                repositoryLinkRepository.findPrimaryRepositoryUrl(project.getId()).orElse(null),
                 project.getTechStack(),
                 project.getFeatures(),
                 tags,

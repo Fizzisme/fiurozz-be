@@ -1,11 +1,12 @@
 package com.philia.projectservice.catalog.internal.adapter.in.web;
 
 import com.philia.projectservice.catalog.api.PublicProjectSearchQuery;
+import com.philia.projectservice.catalog.api.PublicProjectCursor;
 import com.philia.projectservice.catalog.api.SearchPublicProjectsUseCase;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.response.ProjectDetailResponse;
-import com.philia.projectservice.catalog.internal.adapter.in.web.dto.response.ProjectPageResponse;
+import com.philia.projectservice.catalog.internal.adapter.in.web.dto.response.PublicProjectCursorPageResponse;
 import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.ProjectDetailWebMapper;
-import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.ProjectSummaryWebMapper;
+import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.PublicProjectWebMapper;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectNotFoundException;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectDetailQuery;
 import com.philia.projectservice.catalog.internal.domain.exception.InvalidProjectException;
@@ -23,29 +24,33 @@ import java.util.UUID;
 @RestController
 public class PublicProjectQueryController {
     private final SearchPublicProjectsUseCase search;
-    private final ProjectSummaryWebMapper summaryMapper;
+    private final PublicProjectWebMapper publicProjectMapper;
     private final ProjectDetailQuery detailQuery;
     private final ProjectDetailWebMapper detailMapper;
 
-    public PublicProjectQueryController(SearchPublicProjectsUseCase search, ProjectSummaryWebMapper summaryMapper,
+    public PublicProjectQueryController(SearchPublicProjectsUseCase search, PublicProjectWebMapper publicProjectMapper,
                                         ProjectDetailQuery detailQuery, ProjectDetailWebMapper detailMapper) {
         this.search = search;
-        this.summaryMapper = summaryMapper;
+        this.publicProjectMapper = publicProjectMapper;
         this.detailQuery = detailQuery;
         this.detailMapper = detailMapper;
     }
 
     @GetMapping("/v1/projects")
-    public ResponseEntity<ApiResponse<ProjectPageResponse>> searchProjects(
+    public ResponseEntity<ApiResponse<PublicProjectCursorPageResponse>> searchProjects(
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(required = false) UUID categoryId, @RequestParam(required = false) UUID subCategoryId,
+            @RequestParam(required = false) String categorySlug,
+            @RequestParam(required = false) String subCategorySlug,
             @RequestParam(required = false) String tag, @RequestParam(required = false) UUID ownerId,
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int limit,
             @RequestParam(defaultValue = "newest") String sort) {
-        var result = search.searchPublicProjects(new PublicProjectSearchQuery(query, categoryId, subCategoryId, tag,
-                ownerId, page, size, parseSort(sort)));
+        var result = search.searchPublicProjects(new PublicProjectSearchQuery(
+                query, categoryId, subCategoryId, categorySlug, subCategorySlug, tag,
+                ownerId, PublicProjectCursor.decode(cursor), limit, parseSort(sort)));
         return ResponseEntity.ok(ApiResponse.success("PUBLIC_PROJECTS_RETRIEVED", "Public projects retrieved successfully.",
-                summaryMapper.toPageResponse(result)));
+                publicProjectMapper.toPageResponse(result)));
     }
 
     @GetMapping("/v1/owners/{ownerId}/projects/{slug}")

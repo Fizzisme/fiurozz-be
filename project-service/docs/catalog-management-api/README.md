@@ -38,17 +38,18 @@ Phase 1 contains 15 endpoints:
 | 9 | `POST` | `/v1/projects/{projectId}/reopen` | Required | `ReopenProject` |
 | 10 | `PATCH` | `/v1/projects/{projectId}/visibility` | Required | `ChangeProjectVisibility` |
 | 11 | `GET` | `/v1/projects` | Public | `SearchPublishedProjects` |
-| 12 | `GET` | `/api/v1/owners/{ownerId}/projects/{slug}` | Public | `GetPublishedProjectBySlug` |
-| 13 | `GET` | `/api/v1/categories` | Public | `ListProjectCategories` |
-| 14 | `GET` | `/api/v1/categories/{categoryId}/subcategories` | Public | `ListProjectSubCategories` |
-| 15 | `GET` | `/api/v1/tags` | Public | `SearchProjectTags` |
+| 12 | `GET` | `/v1/owners/{ownerId}/projects/{slug}` | Public | `GetPublishedProjectBySlug` |
+| 13 | `GET` | `/v1/categories` | Public | `ListProjectCategories` |
+| 14 | `GET` | `/v1/categories/{categoryId}/subcategories` | Public | `ListProjectSubCategories` |
+| 15 | `GET` | `/v1/tags` | Public | `SearchProjectTags` |
 
 ## Common conventions
 
 ### Base path and content types
 
 ```text
-Base path:    /api/v1
+Service path: /v1
+Gateway path: /api/project/v1
 Request:      application/json
 Response:     application/json
 Error:        application/json
@@ -615,7 +616,7 @@ Errors: `400`, `401`, `403`, `404`, `412`.
 ## 11. Public Project Search and Discovery
 
 ```http
-GET /v1/projects?q=spring&categoryId=<uuid>&subCategoryId=<uuid>&tag=backend&ownerId=<uuid>&page=0&size=20&sort=newest
+GET /v1/projects?q=spring&categorySlug=developer-tools&subCategorySlug=api-platform&tag=backend&ownerId=<uuid>&cursor=<opaque>&limit=20&sort=newest
 ```
 
 Supported parameters:
@@ -625,10 +626,12 @@ Supported parameters:
 | `q` | Query title and short description. |
 | `categoryId` | Include Projects whose subcategory belongs to the Category. |
 | `subCategoryId` | Include Projects in one subcategory. |
+| `categorySlug` | Slug alternative used by frontend category routes. |
+| `subCategorySlug` | Slug alternative used by frontend subcategory routes. |
 | `tag` | Include Projects assigned to the Tag slug. |
 | `ownerId` | Include public Projects from one owner. |
-| `page` | Zero-based page. |
-| `size` | `1` to `50`. |
+| `cursor` | Opaque continuation token returned by the preceding response. |
+| `limit` | `1` to `50`; defaults to `20`. |
 | `sort` | Initially `newest` or `oldest`. |
 
 The server always applies:
@@ -646,7 +649,19 @@ The current indexes support subcategory/status/visibility/date discovery, but
 not text search. `ILIKE` is acceptable for an initial small dataset. Add a new
 Liquibase full-text or trigram index before relying on text search at scale.
 
-Success: `200 OK` with paginated public Project summaries.
+Success: `200 OK` with public Project cards and cursor metadata:
+
+```json
+{
+  "items": [],
+  "nextCursor": null,
+  "hasMore": false
+}
+```
+
+Cards contain nested Category, Subcategory, and Owner references plus the
+technology stack required by the frontend discovery view. The cursor is based
+on `(published_at, project_id)` so equal publication timestamps remain stable.
 
 Errors: `400`.
 
@@ -670,7 +685,9 @@ Access rules:
 | `ARCHIVED` | `404 Not Found` |
 | Soft deleted | `404 Not Found` |
 
-Success: `200 OK` with the public Project detail representation.
+Success: `200 OK` with the public Project detail representation. Image media
+are sorted by `sort_order`, and `githubUrl` identifies the active primary
+repository when one is connected.
 
 Errors: `400`, `404`.
 

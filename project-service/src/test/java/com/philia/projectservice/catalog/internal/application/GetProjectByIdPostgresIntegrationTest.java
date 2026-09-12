@@ -42,6 +42,7 @@ class GetProjectByIdPostgresIntegrationTest {
     @Test
     void ownerRetrievesDraftProjectWithCompleteDatabaseProjection() throws Exception {
         var fixture = insertProject("DRAFT", "PRIVATE");
+        insertProjectAssets(fixture);
 
         mockMvc().perform(get("/v1/projects/{projectId}", fixture.projectId())
                         .header("Authorization", "Bearer test-token")
@@ -59,6 +60,9 @@ class GetProjectByIdPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.techStack[1]").value("spring-boot"))
                 .andExpect(jsonPath("$.data.features[0]").value("Project catalog"))
                 .andExpect(jsonPath("$.data.tags[0].id").value(fixture.tagId().toString()))
+                .andExpect(jsonPath("$.data.images[0]").value("https://cdn.example.com/project-first.png"))
+                .andExpect(jsonPath("$.data.images[1]").value("https://cdn.example.com/project-second.png"))
+                .andExpect(jsonPath("$.data.githubUrl").value("https://github.com/philia/project"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.data.version").value(3));
@@ -203,6 +207,48 @@ class GetProjectByIdPostgresIntegrationTest {
                 .update();
 
         return new ProjectFixture(projectId, ownerId, categoryId, subCategoryId, tagId);
+    }
+
+    private void insertProjectAssets(ProjectFixture fixture) {
+        jdbcClient.sql("""
+                        INSERT INTO project_media (id, project_id, media_type, media_url, sort_order)
+                        VALUES
+                            (:firstId, :projectId, 'IMAGE', 'https://cdn.example.com/project-first.png', 10),
+                            (:secondId, :projectId, 'IMAGE', 'https://cdn.example.com/project-second.png', 20)
+                        """)
+                .param("firstId", UUID.randomUUID())
+                .param("secondId", UUID.randomUUID())
+                .param("projectId", fixture.projectId())
+                .update();
+
+        var integrationId = UUID.randomUUID();
+        jdbcClient.sql("""
+                        INSERT INTO github_integrations (
+                            id, user_id, installation_id, account_login, account_type,
+                            repository_selection, permissions
+                        ) VALUES (
+                            :id, :userId, :installationId, 'philia', 'USER', 'SELECTED', '{}'::jsonb
+                        )
+                        """)
+                .param("id", integrationId)
+                .param("userId", fixture.ownerId())
+                .param("installationId", UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE)
+                .update();
+
+        jdbcClient.sql("""
+                        INSERT INTO project_repositories (
+                            id, project_id, github_integration_id, github_repository_id,
+                            full_name, default_branch, is_private, html_url, is_primary
+                        ) VALUES (
+                            :id, :projectId, :integrationId, :repositoryId,
+                            'philia/project', 'main', FALSE, 'https://github.com/philia/project', TRUE
+                        )
+                        """)
+                .param("id", UUID.randomUUID())
+                .param("projectId", fixture.projectId())
+                .param("integrationId", integrationId)
+                .param("repositoryId", UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE)
+                .update();
     }
 
     private MockMvc mockMvc() {
