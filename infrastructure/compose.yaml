@@ -29,16 +29,26 @@ services:
     restart: unless-stopped
     volumes:
       - ../api-gateway/deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
 
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
     ports:
       - "${GRAFANA_PORT:-3001}:3000"
     depends_on:
       - prometheus
+      - loki
+      - jaeger
 
   loki:
     image: grafana/loki:3.0.0
@@ -82,3 +92,7 @@ volumes:
     name: fiurozz-rabbitmq-data
   gateway-logs:
     name: fiurozz-gateway-logs
+  grafana-data:
+    name: fiurozz-grafana-data
+  prometheus-data:
+    name: fiurozz-prometheus-data
