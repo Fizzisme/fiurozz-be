@@ -18,8 +18,8 @@ COPY --from=build /workspace/target/project-service-*.jar app.jar
 
 USER spring
 
-EXPOSE 8082
+EXPOSE 8086
 
-ENV SERVER_PORT=8082
+ENV SERVER_PORT=8086
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
