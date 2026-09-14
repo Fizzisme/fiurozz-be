@@ -56,15 +56,9 @@ Both `auth-service` (session endpoints) and `user-service` (`getMe`) read `X-Use
 
 **Fix:** at minimum, add a shared internal-only header/secret the gateway attaches and each service validates (simple HMAC or static shared secret is enough for a showcase project); properly, put internal services on a private network/segment not reachable from outside the gateway.
 
-## 7. Observability stack doesn't match what the services actually export
+## 7. Observability stack doesn't match what the services actually export — FIXED 2026-09-14
 
-- `infrastructure/compose.yaml` (the "shared infra" every service is meant to use) provisions **Redis and Zipkin only**.
-- All three reviewed services (`api-gateway`, `auth-service`, `user-service`) export traces via **OTLP gRPC** to `localhost:4317` by default — a protocol Zipkin's container doesn't speak, and a port nothing in `infrastructure/compose.yaml` listens on.
-- A working OTLP receiver (Jaeger or an OpenTelemetry Collector) only exists in `api-gateway/deploy/docker-compose.yml`, a gateway-local dev stack not referenced from the root compose or from either NestJS service's docs.
-
-**Impact:** running `docker compose -f infrastructure/compose.yaml up -d` as the root README currently instructs gives you a Zipkin UI that will never receive a trace, while all three services log tracing-export connection failures unless someone separately starts the gateway's own observability stack.
-
-**Fix:** pick one exporter target for the whole system (OTLP is already what every service defaults to) and add a real OTLP receiver (Jaeger v2 or an OTel Collector) to `infrastructure/compose.yaml`; remove or repurpose the unused Zipkin container.
+`infrastructure/compose.yaml` now runs Jaeger (OTLP gRPC/HTTP receiver, replacing the unused Zipkin container), Prometheus, Grafana, Loki and Promtail — all on the same Compose project/network as `api-gateway`, `auth-service`, `user-service`, and `project-service`. Each service's `compose.yaml` overrides its OTLP endpoint env var to point at the `jaeger` container by name (`OTEL_ENDPOINT`/`OTEL_EXPORTER_OTLP_ENDPOINT`). The gateway's `logs/gateway.log` is written to a named volume (`gateway-logs`) shared with the Promtail container, replacing the old host-path bind-mount that broke once the gateway itself moved into a container. See `api-gateway/PROBLEMS.md` AGW-014 for what's still outstanding (EOL/unpinned images, Grafana data sources not pre-provisioned).
 
 ## 8. Redis is provisioned but unused
 

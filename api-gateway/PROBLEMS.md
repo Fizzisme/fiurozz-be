@@ -43,17 +43,13 @@ go test ./internal/resilience
 
 **Fix:** either call `metrics.Init()` in a `TestMain` for this package, or (better long-term) inject a metrics recorder into `resilience` instead of depending on package-level globals, so the package is usable/testable without a hidden init-order requirement.
 
-### AGW-009 — Config requires `.env` to exist; no field validation
+### AGW-009 — Config requires `.env` to exist — FIXED 2026-09-14 (partial)
 
-`internal/config/config.go`'s `Load()` returns an error (`config.Load` → `main.go` → `log.Fatal`) if `configs/.env` is missing, even when the process environment already has every variable set (e.g. via Docker/CI secret injection) — see `godotenv.Load("configs/.env")` at the top of `Load()`. After loading, nothing validates that `PORT`, `JWT_SECRET`, `JWT_ISSUER`, `OTEL_ENDPOINT`, or the upstream URLs are non-empty or well-formed; an empty `AUTH_SERVICE`/`USER_SERVICE` value would only surface as a confusing proxy error at request time, not a startup failure.
+`godotenv.Load("configs/.env")` no longer returns a fatal error when the file is absent (`os.IsNotExist` is tolerated), so a container relying purely on injected env vars (Docker Compose `env_file`/`environment`) now boots. Field validation (non-empty/well-formed `PORT`, `JWT_SECRET`, upstream URLs, etc.) is still not implemented — that half of this item remains open.
 
-**Fix:** treat the `.env` file as optional (only for local dev), and add explicit validation of required fields (non-empty, parseable duration/URL) right after `Load()` returns, failing fast with a clear message.
+### AGW-010 — Fresh checkout won't start without a manually created `logs/` directory — FIXED 2026-09-14 (native dev still needs the manual step)
 
-### AGW-010 — Fresh checkout won't start without a manually created `logs/` directory
-
-`internal/logger/logger.go`'s `Init()` opens `logs/gateway.log` with `os.OpenFile` and no `os.MkdirAll` beforehand. `logs/` is gitignored and doesn't exist in a fresh clone, so `logger.Init()` — the very first thing `main.go` calls — fails immediately unless someone creates the directory by hand first (as the README currently instructs).
-
-**Fix:** either `os.MkdirAll("logs", 0755)` before opening the file, or (preferable for a service meant to run in containers) log to stdout only and let the platform/log shipper handle file output.
+`Dockerfile` now creates `logs/` (owned by the non-root `gateway` user) as part of the image build, so the containerized gateway no longer needs this done by hand. Running natively (`go run ./cmd/server`) still requires creating `logs/` first, as documented in the README.
 
 ### AGW-011 — Circuit breaker doesn't count upstream 5xx responses as failures
 
@@ -67,9 +63,9 @@ go test ./internal/resilience
 
 **Fix:** read claims after `c.Next()` (post-handler) instead of before, or split logging into a pre-request line (method/path/request ID) and a post-request line (status/duration/user ID).
 
-### AGW-014 — Local observability stack uses EOL/unpinned images
+### AGW-014 — Local observability stack uses EOL/unpinned images (networking half fixed 2026-09-14)
 
-`deploy/docker-compose.yml` still runs `prom/prometheus:latest`, `grafana/grafana:latest`, `jaegertracing/all-in-one:1.71.0` (Jaeger v1, EOL), and `grafana/promtail:3.0.0` (EOL, superseded by Grafana Alloy), with `network_mode: host` and no persistent volumes. Unchanged since the original audit — see `CODE_REVIEW.md#AGW-014` for sourcing and `UPGRADE.md` phase 3 for the migration plan. Lower priority than the items above since this stack is dev-only tooling, not the gateway itself.
+`deploy/docker-compose.yml` (host-network, host-mounted logs, disconnected from the app's own Docker network) has been retired; Prometheus, Grafana, Jaeger, Loki and Promtail now live in `infrastructure/compose.yaml` on the same `fiurozz` Compose project as the services — normal bridge networking (no `network_mode: host`), container-name-based Prometheus scrape target, and a named volume (`gateway-logs`) instead of a host bind-mount for the log shipper. This also resolves root `PROBLEMS.md` item 7 (Zipkin, which none of the services actually speak, is replaced by Jaeger's OTLP receiver). Still using `prom/prometheus:latest`, `grafana/grafana:latest`, `jaegertracing/all-in-one:1.71.0` (Jaeger v1, EOL), and `grafana/promtail:3.0.0` (EOL) — see `CODE_REVIEW.md#AGW-014` and `UPGRADE.md` phase 3 for the still-open image-upgrade plan.
 
 ### AGW-015 — Formatting and module metadata still not clean
 

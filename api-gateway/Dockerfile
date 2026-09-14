@@ -18,6 +18,7 @@ RUN addgroup -S gateway && adduser -S gateway -G gateway
 
 COPY --from=build /out/api-gateway ./api-gateway
 COPY configs/routes.yaml ./configs/routes.yaml
+RUN mkdir logs && chown gateway:gateway logs
 
 USER gateway
 

@@ -48,12 +48,12 @@ Downstream services trust these headers completely and never re-verify the JWT t
 
 - Go `1.26.4` (per `go.mod`).
 - `auth-service` and `user-service` running and reachable at the URLs configured below.
-- An OTLP gRPC trace receiver (e.g. Jaeger, OTel Collector) if you want traces to go anywhere — see root [PROBLEMS.md](../PROBLEMS.md) item 7 for the current gap here.
-- A `logs/` directory must exist before starting, since the logger currently writes to `logs/gateway.log` (see [PROBLEMS.md](PROBLEMS.md)).
+- An OTLP gRPC trace receiver if you want traces to go anywhere — `docker compose up -d` from the repo root now provisions Jaeger for this (see [PROBLEMS.md](PROBLEMS.md), AGW-014).
+- Running natively (`go run`): a `logs/` directory must exist first, since the logger writes to `logs/gateway.log` (see [PROBLEMS.md](PROBLEMS.md), AGW-010). The Docker image creates this itself.
 
 ## Configuration
 
-`config.Load()` requires `configs/.env` to exist locally (see [PROBLEMS.md](PROBLEMS.md) for why this is awkward outside local dev). Copy `configs/.env.example` and fill in real values — never commit the result.
+For local/native runs, `config.Load()` reads `configs/.env` (copy `configs/.env.example` and fill in real values — never commit the result). In a container, a missing `configs/.env` is no longer fatal — real values come from Compose's `env_file`/`environment` instead (see [PROBLEMS.md](PROBLEMS.md), AGW-009).
 
 ```dotenv
 APP_NAME=api-gateway
@@ -99,19 +99,19 @@ Invoke-RestMethod http://localhost:8080/health
 Invoke-WebRequest http://localhost:8080/metrics
 ```
 
-## Local observability stack
+## Observability stack
 
-`deploy/docker-compose.yml` runs Prometheus, Grafana, Jaeger, Loki and Promtail for local development — this is separate from the shared `infrastructure/compose.yaml` at the repo root (see root [PROBLEMS.md](../PROBLEMS.md) item 7).
+Prometheus, Grafana, Jaeger, Loki and Promtail are provisioned in the shared `infrastructure/compose.yaml` at the repo root (on the same Docker network as every service, so this only works when the gateway itself is also running via Compose — see [PROBLEMS.md](PROBLEMS.md), AGW-014):
 
 ```powershell
-docker compose -f deploy/docker-compose.yml up -d
+docker compose up -d
 ```
 
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-- Jaeger UI: `http://localhost:16686`
+- Prometheus: `http://localhost:9090` (scrapes `api-gateway:8080/metrics`)
+- Grafana: `http://localhost:3000` (add Prometheus at `http://prometheus:9090` and Loki at `http://loki:3100` as data sources — not pre-provisioned)
+- Jaeger UI: `http://localhost:16686` (receives OTLP traces from `api-gateway`, `auth-service`, and `user-service`)
 
-This stack is dev-only: it relies on `network_mode: host`, uses unpinned/EOL images (Promtail, Jaeger v1), and has no persistent volumes. See [CODE_REVIEW.md](CODE_REVIEW.md#agw-014) for the historical detail and [UPGRADE.md](UPGRADE.md) for the migration plan.
+Still uses unpinned/EOL images (Promtail, Jaeger v1) — see [CODE_REVIEW.md](CODE_REVIEW.md#agw-014) for the historical detail and [UPGRADE.md](UPGRADE.md) for the migration plan.
 
 ## Quality checks
 

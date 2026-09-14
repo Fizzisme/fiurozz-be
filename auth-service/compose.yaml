@@ -10,8 +10,11 @@ services:
       - ./.env
     environment:
       RABBIT_MQ_URI: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
     ports:
       - "${AUTH_SERVICE_PORT:-8081}:8081"
     depends_on:
       rabbitmq:
         condition: service_healthy
+      jaeger:
+        condition: service_started
