@@ -99,4 +99,6 @@ func stripIdentityHeaders(c *gin.Context) {
 	c.Request.Header.Del(constants.HeaderUserID)
 	c.Request.Header.Del(constants.HeaderUserEmail)
 	c.Request.Header.Del(constants.HeaderUserRoles)
+	c.Request.Header.Del(constants.HeaderUserDisplayName)
+	c.Request.Header.Del(constants.HeaderUserAvatarURL)
 }

@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: fiurozz
+    orgId: 1
+    folder: Fiurozz
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

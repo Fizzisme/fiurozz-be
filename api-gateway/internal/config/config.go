@@ -28,9 +28,10 @@ type Config struct {
 func Load() (*Config, error) {	
 
 	// Load .env into the process environment before reading values.
-	err := godotenv.Load("configs/.env")
-
-	if err != nil {
+	// Missing file is not fatal: in containers, config comes from
+	// env vars injected by the runtime (e.g. Docker Compose), not a
+	// physical .env file baked into the image.
+	if err := godotenv.Load("configs/.env"); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 

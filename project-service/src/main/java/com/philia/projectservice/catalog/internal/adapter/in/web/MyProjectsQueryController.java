@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * HTTP input adapter for a signed-in owner's project dashboard.
  */
 @RestController
-@RequestMapping("/v1/me/projects")
+@RequestMapping("/me")
 public final class MyProjectsQueryController implements ListMyProjectsApiDocumentation {
 
     private final ListMyProjectsUseCase listMyProjectsUseCase;

@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/** Optional owner-editable fields for PATCH /v1/projects/{projectId}. */
+/** Optional owner-editable fields for PATCH /{projectId}. */
 public record UpdateProjectRequest(
         UUID subCategoryId,
 

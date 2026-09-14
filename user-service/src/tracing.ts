@@ -11,7 +11,7 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
 const sdk = new NodeSDK({
 
     resource: resourceFromAttributes({
-        [ATTR_SERVICE_NAME]: process.env.APP_NAME ?? 'AUTH-SERVICE',
+        [ATTR_SERVICE_NAME]: process.env.APP_NAME ?? 'USER-SERVICE',
         [ATTR_SERVICE_VERSION]: process.env.APP_VERSION ?? '1.0.0',
     }),
 

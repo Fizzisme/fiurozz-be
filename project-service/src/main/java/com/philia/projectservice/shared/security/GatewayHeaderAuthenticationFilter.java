@@ -37,11 +37,8 @@ public final class GatewayHeaderAuthenticationFilter extends OncePerRequestFilte
     }
 
     private static void authenticateFromTrustedGatewayHeaders(HttpServletRequest request) {
-        var authorization = trimToNull(request.getHeader("Authorization"));
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return;
-        }
-
+        // The gateway verifies the JWT and strips Authorization before proxying,
+        // so X-User-ID is the only identity signal that reaches this service.
         var rawUserId = trimToNull(request.getHeader(USER_ID_HEADER));
         if (rawUserId == null) {
             return;

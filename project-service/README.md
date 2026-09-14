@@ -10,46 +10,32 @@
 
 - [Phase 1 Catalog Management API](docs/catalog-management-api/README.md)
 
-## PostgreSQL development database
+## PostgreSQL database
 
-Start PostgreSQL 18 with a persistent Docker volume:
+The service connects to PostgreSQL through a single `DATABASE_URL` JDBC
+connection string (same convention as `auth-service` and `user-service`), so
+switching hosts — e.g. from a Neon dev branch to a production database — is a
+one-variable change, not a code change. There is no local Postgres container;
+copy `.env.example` to `.env` and fill in your own connection string:
 
-```powershell
-docker compose up -d product-db
-docker compose ps
+```
+DATABASE_URL=jdbc:postgresql://<host>/<database>?user=<user>&password=<password>&sslmode=require
 ```
 
-To start all currently integrated services and shared infrastructure, run this
-from the repository root instead:
+`.env` is gitignored — never commit real credentials.
+
+To start the service and shared infrastructure (Redis) from the repository
+root:
 
 ```powershell
 docker compose up -d
 ```
 
-The local defaults are:
-
-- Host: `localhost`
-- Port: `5432`
-- Database: `product_service`
-- Username: `product_service`
-- Password: `product_service`
-
-Override them with `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, and
-`DB_PASSWORD`. The Compose file consumes every variable except `DB_HOST`, while
-Spring Boot consumes all five. Do not use the development password in a shared
-or production environment.
-
-Run the service or its tests after PostgreSQL is healthy:
+Run the service or its tests directly:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
-.\mvnw.cmd test "-Dspring.docker.compose.enabled=false"
-```
-
-Stop PostgreSQL without deleting its data:
-
-```powershell
-docker compose stop product-db
+.\mvnw.cmd test
 ```
 
 ## Liquibase migrations

@@ -1,0 +1,24 @@
+name: fiurozz
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./configs/.env
+    environment:
+      AUTH_SERVICE: http://auth-service:8081
+      USER_SERVICE: http://user-service:8082
+      PROJECT_SERVICE: http://project-service:8086
+      OTEL_ENDPOINT: jaeger:4317
+    volumes:
+      - gateway-logs:/app/logs
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      - auth-service
+      - user-service
+      - project-service
+      - jaeger

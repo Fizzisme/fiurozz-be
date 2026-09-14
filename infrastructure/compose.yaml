@@ -14,12 +14,85 @@ services:
       timeout: 3s
       retries: 10
 
-  zipkin:
-    image: openzipkin/zipkin:latest
+  jaeger:
+    image: jaegertracing/all-in-one:1.71.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"
+      - "${JAEGER_OTLP_HTTP_PORT:-4318}:4318"
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    volumes:
+      - ../api-gateway/deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - jaeger
+
+  loki:
+    image: grafana/loki:3.0.0
     restart: unless-stopped
     ports:
-      - "${ZIPKIN_PORT:-9411}:9411"
+      - "${LOKI_PORT:-3100}:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    restart: unless-stopped
+    volumes:
+      - ../api-gateway/deploy/loki/promtail-config.yml:/etc/promtail/config.yml
+      - gateway-logs:/logs
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
 volumes:
   redis-data:
     name: fiurozz-redis-data
+  rabbitmq-data:
+    name: fiurozz-rabbitmq-data
+  gateway-logs:
+    name: fiurozz-gateway-logs
+  grafana-data:
+    name: fiurozz-grafana-data
+  prometheus-data:
+    name: fiurozz-prometheus-data

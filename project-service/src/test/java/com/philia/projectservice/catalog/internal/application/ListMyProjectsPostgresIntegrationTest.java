@@ -41,7 +41,7 @@ class ListMyProjectsPostgresIntegrationTest {
         insertProject(ownerId, "Deleted Backend", "DRAFT", "PRIVATE", "2026-01-04T00:00:00Z", true);
         insertProject(UUID.randomUUID(), "Other Backend", "DRAFT", "PRIVATE", "2026-01-05T00:00:00Z", false);
 
-        mockMvc().perform(get("/v1/me/projects")
+        mockMvc().perform(get("/me")
                         .param("status", "DRAFT")
                         .param("q", "backend")
                         .param("page", "1")
@@ -65,12 +65,12 @@ class ListMyProjectsPostgresIntegrationTest {
 
     @Test
     void rejectsAnonymousAndInvalidCollectionParameters() throws Exception {
-        mockMvc().perform(get("/v1/me/projects"))
+        mockMvc().perform(get("/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
 
         var ownerId = UUID.randomUUID();
-        mockMvc().perform(get("/v1/me/projects")
+        mockMvc().perform(get("/me")
                         .param("size", "51")
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId))
@@ -82,9 +82,9 @@ class ListMyProjectsPostgresIntegrationTest {
     void publishesListMyProjectsOpenApiDocumentation() throws Exception {
         mockMvc().perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$['paths']['/v1/me/projects']['get']['operationId']")
+                .andExpect(jsonPath("$['paths']['/me']['get']['operationId']")
                         .value("listMyProjects"))
-                .andExpect(jsonPath("$['paths']['/v1/me/projects']['get']['responses']['401']")
+                .andExpect(jsonPath("$['paths']['/me']['get']['responses']['401']")
                         .exists());
     }
 

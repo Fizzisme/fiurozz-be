@@ -1,0 +1,5 @@
+.git
+configs/.env
+logs/
+deploy/
+*.md
