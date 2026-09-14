@@ -1,98 +1,100 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Auth Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS service that owns account identity: registration, password login, OAuth (Google/GitHub/Facebook), access/refresh token issuance, and session management. Publishes an `account.created` event (via the Outbox pattern) so `user-service` can provision a matching profile.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> Mounted behind `api-gateway` at `/api/auth/*` (prefix stripped before reaching this service — e.g. `/api/auth/login` arrives here as `POST /login`). See [PROBLEMS.md](PROBLEMS.md) for known issues and the root [CLAUDE.md](../CLAUDE.md) for the cross-service contracts this service is part of.
 
-## Description
+## What this service does
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **Password auth:** `POST /register`, `POST /login` — bcrypt-hashed passwords, one account per email.
+- **OAuth:** `GET /oauth/{google,github,facebook}` (redirect to provider) and `.../callback` (Passport strategy verifies the profile, then issues a short-lived handoff code redirecting back to the frontend). `POST /oauth/exchange` trades that handoff code for real tokens — this indirection exists so a popup closed mid-flow never leaves an orphaned session (see comments in `auth.controller.ts`).
+- **Tokens:** `POST /refresh` rotates the access/refresh pair. Access and refresh tokens are signed with **separate** secrets (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`); only the access-token secret needs to match `api-gateway`'s `JWT_SECRET` (see root [CLAUDE.md](../CLAUDE.md)).
+- **Sessions:** `GET /sessions`, `DELETE /sessions/:id`, `POST /logout`, `POST /logout-all` — one row per refresh token in `refresh_tokens`, keyed by device/IP/user-agent, so a user can see and revoke individual "logged in devices."
+- **Event publishing:** every account creation (password or OAuth) writes an `OutboxEvent` row in the same DB transaction as the `Account` row. `OutboxRelayService` polls that table every 2s and publishes to RabbitMQ (exchange `user.events`, routing key `account.created`), retrying up to 3 times before marking an event `failed`.
 
-## Project setup
+`sessions`/`logout*` endpoints read the caller's identity from the `X-User-Id` header set by the gateway — this service never re-verifies the JWT itself.
 
-```bash
-$ npm install
+## Data model
+
+PostgreSQL via Prisma (`prisma/schema.prisma`):
+
+- `accounts` — identity + credentials (`passwordHash` nullable for OAuth-only accounts), `roles: String[]` (default `["USER"]`).
+- `oauth_accounts` — one row per linked provider identity, cascade-deleted with the account.
+- `refresh_tokens` — one row per active session; token stored as a bcrypt hash, never in plaintext.
+- `outbox_events` — the Outbox pattern's event log (`pending` → `success`/`failed`, with `attempts` tracked).
+
+## Requirements
+
+- Node.js + npm.
+- PostgreSQL reachable via `DATABASE_URL`.
+- RabbitMQ reachable via the connection string this service reads (see [PROBLEMS.md](PROBLEMS.md) — the variable name is inconsistent with `user-service`, and RabbitMQ itself isn't provisioned in `infrastructure/compose.yaml` yet — see root [PROBLEMS.md](../PROBLEMS.md) item 1).
+- OAuth app credentials (Google/GitHub/Facebook) if exercising those flows locally.
+- An OTLP gRPC trace collector if you want traces to go anywhere (defaults to `localhost:4317`).
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill in real values:
+
+```dotenv
+PORT=
+JWT_ACCESS_SECRET=      # must match api-gateway's JWT_SECRET
+JWT_REFRESH_SECRET=     # separate secret, only used here
+JWT_ACCESS_EXPIRES=     # e.g. 15m
+JWT_REFRESH_EXPIRES=    # e.g. 7d
+JWT_ISSUER=             # must match api-gateway's JWT_ISSUER
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=
+FACEBOOK_CLIENT_ID=
+FACEBOOK_CLIENT_SECRET=
+FACEBOOK_CALLBACK_URL=
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OAUTH_HANDOFF_SECRET=   # see PROBLEMS.md — do not leave unset
+FE_URL=                 # frontend origin OAuth callbacks redirect to
+DATABASE_URL=
 ```
 
-## Compile and run the project
+Not in `.env.example` yet, but required for the outbox relay to actually publish anything — see [PROBLEMS.md](PROBLEMS.md):
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```dotenv
+RABBIT_MQ_URI=amqp://guest:guest@localhost:5672
 ```
 
-## Run tests
+## Run locally
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```powershell
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npm run start:dev
 ```
 
-## Deployment
+## Tests
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```powershell
+npm run test       # unit tests — see PROBLEMS.md, there are currently none written
+npm run test:e2e   # e2e tests — see PROBLEMS.md, the test/ directory doesn't exist yet
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Structure
 
-## Resources
+```text
+src/auth/            Controller/service for register, login, refresh, logout, sessions
+src/auth/jwt/         Token generation/verification (JwtTokenService)
+src/auth/token/       Session persistence (RefreshTokenService) + shared issuance logic (TokenService)
+src/auth/password/    bcrypt hashing/comparison
+src/account/          Account CRUD (find/create), independent of auth flow specifics
+src/oauth-account/    Passport strategies + guards (Google/GitHub/Facebook) and account linking
+src/outboxEvent/       Outbox write side (OutboxEventService) + relay/publisher (OutboxRelayService)
+src/prisma/            PrismaService wrapper
+src/common/            Global response interceptor + exception filter
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Related docs
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [PROBLEMS.md](PROBLEMS.md) — known issues in this service
+- [Root CLAUDE.md](../CLAUDE.md) — shared JWT secret, identity headers, `account.created` event contract
+- [Root PROBLEMS.md](../PROBLEMS.md) — RabbitMQ provisioning, env var naming, event schema drift
