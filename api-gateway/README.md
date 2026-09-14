@@ -108,7 +108,7 @@ docker compose up -d
 ```
 
 - Prometheus: `http://localhost:9090` (scrapes `api-gateway:8080/metrics`)
-- Grafana: `http://localhost:3000` (add Prometheus at `http://prometheus:9090` and Loki at `http://loki:3100` as data sources — not pre-provisioned)
+- Grafana: `http://localhost:3001` (mapped off the default 3000 to avoid clashing with a locally-running Next.js app; add Prometheus at `http://prometheus:9090` and Loki at `http://loki:3100` as data sources — not pre-provisioned)
 - Jaeger UI: `http://localhost:16686` (receives OTLP traces from `api-gateway`, `auth-service`, and `user-service`)
 
 Still uses unpinned/EOL images (Promtail, Jaeger v1) — see [CODE_REVIEW.md](CODE_REVIEW.md#agw-014) for the historical detail and [UPGRADE.md](UPGRADE.md) for the migration plan.
