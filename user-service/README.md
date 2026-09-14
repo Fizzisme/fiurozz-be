@@ -1,98 +1,75 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# User Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS service that owns user profile data — profile fields, privacy/notification settings, and social links. It never creates accounts itself: a profile is provisioned automatically when it consumes the `account.created` event published by `auth-service`.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> Mounted behind `api-gateway` at `/api/users/*` (prefix stripped before reaching this service). See [PROBLEMS.md](PROBLEMS.md) for known issues and the root [CLAUDE.md](../CLAUDE.md) for the cross-service contracts this service is part of.
 
-## Description
+## What this service does
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- **`GET /me`** — the only HTTP endpoint currently exposed. Reads the caller's identity from the `X-User-Id` header set by the gateway (never re-verifies the JWT itself) and returns the full profile: profile fields, settings, and ordered social links.
+- **Event consumption** — `ConsumerService.handleAccountCreated` listens on RabbitMQ exchange `user.events` / routing key `account.created` and creates a `User` + empty `UserProfile` + default `UserSetting` row. Idempotent by design (skips silently if the user already exists, since RabbitMQ redelivery is expected on crash/retry). Failed processing is retried up to 3 times via a dead-letter/TTL queue, then routed to a terminal `user.events.dlx` queue for manual inspection (see `PROBLEMS.md` for what happens to messages that land there today).
 
-## Project setup
+There are currently no endpoints to update a profile, change settings, or manage social links — see [PROBLEMS.md](PROBLEMS.md).
 
-```bash
-$ npm install
+## Data model
+
+PostgreSQL via Prisma (`prisma/schema.prisma`):
+
+- `users` — the aggregate root, soft-deletable (`deletedAt`), one-to-one with `profile`/`settings`, one-to-many with `links`.
+- `user_profiles` — display fields (`displayName`, `fullName`, `avatarUrl`, `bio`, `occupation`, `company`, `location`, `birthday`, `website`, `gender`, `language`, `timezone`). `email` is copied from `auth-service`'s `Account.email` at creation time — see [PROBLEMS.md](PROBLEMS.md) for the sync implications.
+- `user_settings` — privacy/notification toggles (`isPrivate`, `showEmail`, `showBirthday`, `allowMessage`), locale/theme preference.
+- `social_links` — ordered list of external profile links (`platform` enum, `url`, `order`).
+
+## Requirements
+
+- Node.js + npm.
+- PostgreSQL reachable via `DATABASE_URL`.
+- RabbitMQ reachable via `RABBITMQ_URL` (see [PROBLEMS.md](PROBLEMS.md) — inconsistent with `auth-service`'s variable name for the same broker, and RabbitMQ itself isn't provisioned in `infrastructure/compose.yaml` yet — see root [PROBLEMS.md](../PROBLEMS.md) item 1). Without it, this service starts but never receives `account.created` events, so newly registered accounts never get a profile.
+- An OTLP gRPC trace collector if you want traces to go anywhere (defaults to `localhost:4317`).
+
+## Configuration
+
+Copy `.env.example` to `.env`:
+
+```dotenv
+PORT=
+OTEL_EXPORTER_OTLP_ENDPOINT=
+DATABASE_URL=
 ```
 
-## Compile and run the project
+Not in `.env.example` yet, but required for the RabbitMQ consumer to actually connect — see [PROBLEMS.md](PROBLEMS.md):
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```dotenv
+RABBITMQ_URL=amqp://guest:guest@localhost:5672
 ```
 
-## Run tests
+## Run locally
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```powershell
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npm run start:dev
 ```
 
-## Deployment
+## Tests
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```powershell
+npm run test       # unit tests — see PROBLEMS.md, there are currently none written
+npm run test:e2e   # e2e tests — see PROBLEMS.md, the test/ directory doesn't exist yet
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Structure
 
-## Resources
+```text
+src/user/           GET /me controller + service
+src/consumer/        RabbitMQ topology (exchanges/queues/DLQ) + account.created handler
+src/prisma/          PrismaService wrapper (uses the Postgres driver adapter, @prisma/adapter-pg)
+src/common/          Global response interceptor + exception filter
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Related docs
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- [PROBLEMS.md](PROBLEMS.md) — known issues in this service
+- [Root CLAUDE.md](../CLAUDE.md) — identity headers, `account.created` event contract
+- [Root PROBLEMS.md](../PROBLEMS.md) — RabbitMQ provisioning, env var naming, event schema drift

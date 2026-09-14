@@ -1,77 +1,90 @@
 # API Gateway
 
-API Gateway của Fiurozz là service Go/Gin đứng trước các backend nội bộ. Phiên bản hiện tại đăng ký một route proxy cho Auth Service, đồng thời cung cấp request ID, JWT, rate limiting, retry, circuit breaker, Prometheus metrics, OpenTelemetry tracing và structured logging.
+Go/Gin reverse proxy that sits in front of Fiurozz's internal services. It terminates client traffic, verifies JWTs, applies per-route rate limiting/retry/circuit-breaking, and forwards requests to the appropriate backend, while exporting Prometheus metrics and OpenTelemetry traces.
 
-> Trạng thái: chưa nên dùng production. Bộ test hiện không build, cấu hình đang có rủi ro lộ secret và chuỗi middleware có thể bị spoof header định danh/rate-limit key. Xem [CODE_REVIEW.md](CODE_REVIEW.md) trước khi tích hợp hoặc deploy.
+> **Status:** actively developed, not production-hardened. Most of the P0 issues from the 2026-07-23 audit ([CODE_REVIEW.md](CODE_REVIEW.md)) have since been fixed — see [PROBLEMS.md](PROBLEMS.md) for what's still open today. `CODE_REVIEW.md` and `UPGRADE.md` are kept as historical audit/roadmap documents; don't treat them as the current state without checking `PROBLEMS.md` first.
 
-## Luồng request hiện tại
+## Request flow
 
 ```text
 Client
-  -> Recovery -> Request ID -> OpenTelemetry -> Logger -> Metrics
-  -> Rate limit -> JWT (đang là optional)
-  -> Reverse proxy -> Auth Service
+  → Recovery → RequestID → ClientInfo → OpenTelemetry → Logger → Metrics → CORS
+  → [per route] JWTAuth(authMode) → RateLimit → ReverseProxy (retry + circuit breaker)
+  → backend service
 ```
 
-Thứ tự trên phản ánh đúng code hiện tại. Rate limit chạy trước JWT là một lỗi cần sửa, không phải kiến trúc được khuyến nghị.
+`authMode`, timeout, retry policy, circuit breaker, and rate limit are all declared per route in `configs/routes.yaml` — nothing is hard-coded per backend in Go.
 
-## Endpoint
+## Routes
 
-| Method | Path | Chức năng | Ghi chú |
+Currently registered in [`configs/routes.yaml`](configs/routes.yaml):
+
+| Prefix | Upstream | Auth mode | Notes |
 | --- | --- | --- | --- |
-| `GET` | `/health` | Liveness check | Luôn trả `{"status":"ok"}`; chưa kiểm tra dependency |
-| `GET` | `/metrics` | Prometheus metrics | Hiện chưa có authentication/network restriction |
-| `ANY` | `/auth/*path` | Proxy tới Auth Service | Bỏ prefix `/auth` trước khi forward |
+| `/api/auth/*path` | `AUTH_SERVICE` | `optional` | Prefix stripped before forwarding (`/api/auth/login` → `/login` at auth-service) |
+| `/api/users/*path` | `USER_SERVICE` | `optional` | Same prefix-stripping behavior |
 
-Ví dụ: `/auth/login` được forward thành `/login` ở Auth Service.
+Plus built-in endpoints:
 
-JWT hiện là optional: request không có `Authorization` vẫn được proxy; header có dạng sai hoặc token không hợp lệ sẽ nhận `401`. Cơ chế này có thể phù hợp với login/register, nhưng cần cấu hình public/protected rõ ràng cho từng route trước khi thêm service khác.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness check — always `{"status":"ok"}`, does not check dependencies |
+| `GET` | `/metrics` | Prometheus metrics — currently public, no auth/network restriction |
 
-## Yêu cầu
+`authMode: optional` lets a request through with or without a token; the identity headers below are only set when a valid token is present. Use `required` for routes that must reject unauthenticated requests, and `none` for fully public routes — see `internal/config/routes.go`.
 
-- Go `1.26.4` theo `go.mod`.
-- Auth Service đang chạy và truy cập được từ gateway.
-- OTLP gRPC receiver (ví dụ Jaeger hoặc OpenTelemetry Collector) nếu bật tracing.
-- Thư mục `logs/` phải tồn tại vì logger hiện ghi vào `logs/gateway.log`.
-- Docker Compose nếu muốn chạy stack quan sát cục bộ.
+## Identity propagation
 
-## Cấu hình
+On a request with a valid `Authorization: Bearer <token>`, the gateway:
 
-`config.Load()` hiện bắt buộc file `configs/.env` tồn tại, kể cả khi biến môi trường hệ điều hành đã được inject. Tạo file này chỉ ở máy local và không commit secret.
+1. Verifies the JWT (HMAC, `JWT_SECRET` + `JWT_ISSUER`).
+2. Strips any client-supplied `X-User-Id` / `X-User-Email` / `X-User-Roles` headers (so a caller can't spoof them).
+3. Re-injects those headers from the verified claims before proxying.
+4. Uses the verified user ID (not a header) as the rate-limit key, falling back to client IP only when there's no authenticated identity.
+
+Downstream services trust these headers completely and never re-verify the JWT themselves — see the root [CLAUDE.md](../CLAUDE.md) for why this is a convention, not an enforced boundary, and the root [PROBLEMS.md](../PROBLEMS.md) for the implication.
+
+## Requirements
+
+- Go `1.26.4` (per `go.mod`).
+- `auth-service` and `user-service` running and reachable at the URLs configured below.
+- An OTLP gRPC trace receiver (e.g. Jaeger, OTel Collector) if you want traces to go anywhere — see root [PROBLEMS.md](../PROBLEMS.md) item 7 for the current gap here.
+- A `logs/` directory must exist before starting, since the logger currently writes to `logs/gateway.log` (see [PROBLEMS.md](PROBLEMS.md)).
+
+## Configuration
+
+`config.Load()` requires `configs/.env` to exist locally (see [PROBLEMS.md](PROBLEMS.md) for why this is awkward outside local dev). Copy `configs/.env.example` and fill in real values — never commit the result.
 
 ```dotenv
 APP_NAME=api-gateway
 PORT=8080
 OTEL_ENDPOINT=localhost:4317
-JWT_SECRET=<long-random-secret>
-JWT_ISSUER=<issuer-used-by-auth-service>
-ACCESS_TOKEN_EXPIRE=<currently-unused>
+JWT_SECRET=<must match auth-service's JWT_ACCESS_SECRET — see root CLAUDE.md>
+JWT_ISSUER=<must match auth-service's JWT_ISSUER>
+ACCESS_TOKEN_EXPIRE=<currently loaded but unused>
 AUTH_SERVICE=http://localhost:<auth-service-port>
+USER_SERVICE=http://localhost:<user-service-port>
 PROJECT_SERVICE=
 MEMBER_SERVICE=
 CHAT_SERVICE=
 NOTIFICATION_SERVICE=
 ```
 
-| Biến | Bắt buộc theo nghiệp vụ | Trạng thái sử dụng |
+| Variable | Required | Status |
 | --- | --- | --- |
-| `APP_NAME` | Có | Tên log/trace middleware |
-| `PORT` | Có | HTTP listen port |
-| `OTEL_ENDPOINT` | Có khi bật tracing | OTLP gRPC endpoint |
-| `JWT_SECRET` | Có | Xác minh JWT HMAC; phải dùng secret đủ dài và ngẫu nhiên |
-| `JWT_ISSUER` | Có | So khớp claim `iss` |
-| `ACCESS_TOKEN_EXPIRE` | Chưa | Được load nhưng chưa dùng |
-| `AUTH_SERVICE` | Có | Backend duy nhất đang được đăng ký |
-| `PROJECT_SERVICE` | Chưa | Được load nhưng chưa đăng ký route |
-| `MEMBER_SERVICE` | Chưa | Được load nhưng chưa đăng ký route |
-| `CHAT_SERVICE` | Chưa | Được load nhưng chưa đăng ký route |
-| `NOTIFICATION_SERVICE` | Chưa | Được load nhưng chưa đăng ký route |
+| `APP_NAME` | Yes | Used in logs/traces |
+| `PORT` | Yes | HTTP listen port |
+| `OTEL_ENDPOINT` | Yes, if tracing matters | OTLP gRPC endpoint |
+| `JWT_SECRET` | Yes | Must match `auth-service`'s `JWT_ACCESS_SECRET` byte-for-byte |
+| `JWT_ISSUER` | Yes | Must match `auth-service`'s `JWT_ISSUER` |
+| `ACCESS_TOKEN_EXPIRE` | No | Loaded but never read |
+| `AUTH_SERVICE` | Yes | Registered route upstream |
+| `USER_SERVICE` | Yes | Registered route upstream |
+| `PROJECT_SERVICE`, `MEMBER_SERVICE`, `CHAT_SERVICE`, `NOTIFICATION_SERVICE` | No | Loaded but no route registered for any of them yet |
 
-Repository hiện đang track `configs/.env`. Cần bỏ tracking, thêm `configs/.env.example` chỉ chứa placeholder và rotate `JWT_SECRET` nếu repository từng được chia sẻ hoặc push lên remote. Không chỉ xóa file ở commit mới vì secret có thể vẫn còn trong lịch sử Git.
+## Run locally
 
-## Chạy local
-
-Từ thư mục `api-gateway`:
+From the `api-gateway` directory:
 
 ```powershell
 New-Item -ItemType Directory -Force logs | Out-Null
@@ -79,36 +92,28 @@ go mod download
 go run ./cmd/server
 ```
 
-Kiểm tra nhanh:
+Smoke test:
 
 ```powershell
 Invoke-RestMethod http://localhost:8080/health
 Invoke-WebRequest http://localhost:8080/metrics
 ```
 
-Thay `8080` nếu `PORT` có giá trị khác.
+## Local observability stack
 
-## Observability local
-
-Stack trong `deploy/docker-compose.yml` gồm Prometheus, Grafana, Jaeger, Loki và Promtail.
+`deploy/docker-compose.yml` runs Prometheus, Grafana, Jaeger, Loki and Promtail for local development — this is separate from the shared `infrastructure/compose.yaml` at the repo root (see root [PROBLEMS.md](../PROBLEMS.md) item 7).
 
 ```powershell
-docker compose -f deploy/docker-compose.yml config
 docker compose -f deploy/docker-compose.yml up -d
 ```
-
-Các địa chỉ dự kiến khi Docker host networking đã được hỗ trợ/bật:
 
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3000`
 - Jaeger UI: `http://localhost:16686`
-- Loki: `http://localhost:3100`
 
-Stack này chỉ phù hợp development: `network_mode: host` không portable trên mọi môi trường, dữ liệu chưa có volume bền vững, image Prometheus/Grafana dùng tag `latest`, Jaeger v1 đã EOL và Promtail đã EOL. Xem kế hoạch migration trong [CODE_REVIEW.md](CODE_REVIEW.md).
+This stack is dev-only: it relies on `network_mode: host`, uses unpinned/EOL images (Promtail, Jaeger v1), and has no persistent volumes. See [CODE_REVIEW.md](CODE_REVIEW.md#agw-014) for the historical detail and [UPGRADE.md](UPGRADE.md) for the migration plan.
 
-## Kiểm tra chất lượng
-
-Các lệnh mục tiêu sau khi sửa các lỗi trong báo cáo:
+## Quality checks
 
 ```powershell
 gofmt -w .
@@ -117,37 +122,30 @@ go test ./...
 go vet ./...
 ```
 
-Kết quả audit ngày 2026-07-23:
+See [PROBLEMS.md](PROBLEMS.md) for the current pass/fail status of each of these.
 
-- `go test -run '^$' ./...`: fail vì 5 lời gọi `proxy.New` trong `reverse_proxy_test.go` dùng chữ ký cũ.
-- `go test ./internal/resilience`: panic vì metrics toàn cục chưa được khởi tạo.
-- `go test ./internal/ratelimit`: pass.
-- `gofmt -l .`: liệt kê toàn bộ 37 file Go.
-- `go mod tidy -diff`: có diff; các dependency trực tiếp đang bị đánh dấu `// indirect` và `go.sum` còn entry thừa.
-- `docker compose -f deploy/docker-compose.yml config`: hợp lệ nhưng cảnh báo thuộc tính `version` đã obsolete.
-
-## Cấu trúc
+## Structure
 
 ```text
-cmd/server/          Khởi tạo dependency và HTTP server
-configs/             Cấu hình local (không được commit secret)
-deploy/              Prometheus/Grafana/Jaeger/Loki/Promtail cho development
-internal/auth/       JWT claims và verification
-internal/config/     Load biến môi trường
-internal/logger/     Zap logger
-internal/metrics/    Prometheus collectors
-internal/middleware/ Gin middleware
-internal/proxy/      Route registry và reverse proxy
-internal/ratelimit/  Token-bucket limiter theo client
-internal/resilience/ Retry và circuit breaker transport
-internal/router/     Khai báo route/middleware chain
-internal/tracing/    OpenTelemetry tracer provider
+cmd/server/          Dependency wiring + HTTP server entry point
+configs/              Local config (routes.yaml, .env — never commit real secrets)
+deploy/               Local Prometheus/Grafana/Jaeger/Loki/Promtail stack
+internal/auth/        JWT claims + verification
+internal/bootstrap/   Route registration from config
+internal/config/      Env var + routes.yaml loading
+internal/logger/      Zap logger
+internal/metrics/     Prometheus collectors
+internal/middleware/  Gin middleware (JWT, rate limit, request ID, logging, metrics, client info)
+internal/proxy/       Route registry + reverse proxy (Rewrite-based)
+internal/ratelimit/   Per-key token-bucket limiter (in-memory)
+internal/resilience/  Retry + circuit breaker transport
+internal/router/      Route/middleware chain assembly
+internal/tracing/     OpenTelemetry tracer provider
 ```
 
-## Tài liệu liên quan
+## Related docs
 
-- [Báo cáo code review và kế hoạch cải thiện](CODE_REVIEW.md)
-- [Go `httputil.ReverseProxy`](https://pkg.go.dev/net/http/httputil#ReverseProxy)
-- [Gin security best practices](https://gin-gonic.com/en/docs/middleware/security-guide/)
-- [`golang-jwt/jwt/v5` parser options](https://pkg.go.dev/github.com/golang-jwt/jwt/v5#ParserOption)
-- [OpenTelemetry Go getting started](https://opentelemetry.io/docs/languages/go/getting-started/)
+- [PROBLEMS.md](PROBLEMS.md) — current known issues in this service
+- [CODE_REVIEW.md](CODE_REVIEW.md) — full audit from 2026-07-23 (historical; cross-check against `PROBLEMS.md`)
+- [UPGRADE.md](UPGRADE.md) — staged roadmap toward a production-ready gateway
+- [Root CLAUDE.md](../CLAUDE.md) — cross-service contracts (shared JWT secret, identity headers, routing prefixes)
