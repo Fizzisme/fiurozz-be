@@ -37,3 +37,7 @@ That assumption doesn't hold today: with `auth_mode: optional`, an unauthenticat
 Same as `auth-service` — `package.json` has Jest configured but there is no `test/` directory and zero `*.spec.ts` files. The highest-value target here is `handleAccountCreated`'s idempotency check and the `x-death`-based retry counting (both easy to get subtly wrong and hard to notice without a test, since they only matter on redelivery/failure paths that don't show up in a normal happy-path manual test).
 
 **Fix:** see root `PROBLEMS.md` item 11 for the cross-service framing; for this service specifically, a test harness that can simulate RabbitMQ redelivery (or at least call `handleAccountCreated` twice with the same payload and assert no duplicate/error) would directly cover the idempotency guarantee the code relies on.
+
+## Traces were mislabeled as `AUTH-SERVICE` — FIXED 2026-09-14
+
+`src/tracing.ts`'s OTel resource attribute fell back to `process.env.APP_NAME ?? 'AUTH-SERVICE'` — copy-pasted from `auth-service/src/tracing.ts` without updating the fallback name. Since neither service's `.env` set `APP_NAME`, every user-service trace showed up in Jaeger under the service name "AUTH-SERVICE", indistinguishable from actual auth-service traces. Fixed the fallback to `'USER-SERVICE'`, and both services now set `APP_NAME` explicitly in `.env`/`.env.example` so this class of bug can't recur silently.
