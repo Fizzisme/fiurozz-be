@@ -43,7 +43,7 @@ routes:
     auth_mode: optional
 
   - name: project
-    prefix: /api/project
+    prefix: /api/projects
     upstream: ${PROJECT_SERVICE}
 
     timeout: 5s

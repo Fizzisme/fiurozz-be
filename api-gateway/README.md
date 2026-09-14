@@ -80,7 +80,8 @@ NOTIFICATION_SERVICE=
 | `ACCESS_TOKEN_EXPIRE` | No | Loaded but never read |
 | `AUTH_SERVICE` | Yes | Registered route upstream |
 | `USER_SERVICE` | Yes | Registered route upstream |
-| `PROJECT_SERVICE`, `MEMBER_SERVICE`, `CHAT_SERVICE`, `NOTIFICATION_SERVICE` | No | Loaded but no route registered for any of them yet |
+| `PROJECT_SERVICE` | Yes | Registered route upstream (`/api/projects`) |
+| `MEMBER_SERVICE`, `CHAT_SERVICE`, `NOTIFICATION_SERVICE` | No | Loaded but no route registered for any of them yet |
 
 ## Run locally
 

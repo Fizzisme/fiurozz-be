@@ -44,7 +44,7 @@ Phase 1 contains 15 endpoints:
 | 15 | `GET` | `/tags` | Public | `SearchProjectTags` |
 
 All paths above are relative to the gateway path below — e.g. endpoint 2 is
-reached at `/api/project/{projectId}`.
+reached at `/api/projects/{projectId}`.
 
 ## Common conventions
 
@@ -52,7 +52,7 @@ reached at `/api/project/{projectId}`.
 
 ```text
 Service path: / (no version prefix — see endpoint table above)
-Gateway path: /api/project
+Gateway path: /api/projects
 Request:      application/json
 Response:     application/json
 Error:        application/json
