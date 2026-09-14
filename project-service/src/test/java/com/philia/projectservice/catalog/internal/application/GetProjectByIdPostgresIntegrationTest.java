@@ -44,7 +44,7 @@ class GetProjectByIdPostgresIntegrationTest {
         var fixture = insertProject("DRAFT", "PRIVATE");
         insertProjectAssets(fixture);
 
-        mockMvc().perform(get("/v1/projects/{projectId}", fixture.projectId())
+        mockMvc().perform(get("/{projectId}", fixture.projectId())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, fixture.ownerId())
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -72,7 +72,7 @@ class GetProjectByIdPostgresIntegrationTest {
     void anonymousCallerRetrievesPublishedUnlistedProject() throws Exception {
         var fixture = insertProject("PUBLISHED", "UNLISTED");
 
-        mockMvc().perform(get("/v1/projects/{projectId}", fixture.projectId()))
+        mockMvc().perform(get("/{projectId}", fixture.projectId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
                 .andExpect(jsonPath("$.data.visibility").value("UNLISTED"));
@@ -86,11 +86,11 @@ class GetProjectByIdPostgresIntegrationTest {
                 .param("projectId", deletedProject.projectId())
                 .update();
 
-        mockMvc().perform(get("/v1/projects/{projectId}", privateProject.projectId()))
+        mockMvc().perform(get("/{projectId}", privateProject.projectId()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PROJECT_NOT_FOUND"));
 
-        mockMvc().perform(get("/v1/projects/{projectId}", deletedProject.projectId())
+        mockMvc().perform(get("/{projectId}", deletedProject.projectId())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, deletedProject.ownerId()))
                 .andExpect(status().isNotFound())
@@ -99,7 +99,7 @@ class GetProjectByIdPostgresIntegrationTest {
 
     @Test
     void wrapsMalformedProjectIdInApiResponse() throws Exception {
-        mockMvc().perform(get("/v1/projects/not-a-uuid"))
+        mockMvc().perform(get("/not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
@@ -110,11 +110,11 @@ class GetProjectByIdPostgresIntegrationTest {
         mockMvc().perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths.length()").value(12))
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}']['get']['operationId']")
+                .andExpect(jsonPath("$['paths']['/{projectId}']['get']['operationId']")
                         .value("getProjectById"))
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}']['get']['responses']['200']")
+                .andExpect(jsonPath("$['paths']['/{projectId}']['get']['responses']['200']")
                         .exists())
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}']['get']['responses']['404']")
+                .andExpect(jsonPath("$['paths']['/{projectId}']['get']['responses']['404']")
                         .exists());
     }
 

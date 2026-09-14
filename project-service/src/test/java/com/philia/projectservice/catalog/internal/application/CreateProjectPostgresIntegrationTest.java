@@ -136,7 +136,7 @@ class CreateProjectPostgresIntegrationTest {
                 }
                 """.formatted(subCategoryId, suffix, tagId);
 
-        var mvcResult = mockMvc().perform(post("/v1/projects")
+        var mvcResult = mockMvc().perform(post("/")
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -191,7 +191,7 @@ class CreateProjectPostgresIntegrationTest {
                 List.of(originalTagId)
         ));
 
-        mockMvc().perform(put("/v1/projects/{projectId}/tags", created.id())
+        mockMvc().perform(put("/{projectId}/tags", created.id())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -235,7 +235,7 @@ class CreateProjectPostgresIntegrationTest {
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 
-        mockMvc().perform(patch("/v1/projects/{projectId}", created.id())
+        mockMvc().perform(patch("/{projectId}", created.id())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -275,7 +275,7 @@ class CreateProjectPostgresIntegrationTest {
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 
-        mockMvc().perform(delete("/v1/projects/{projectId}", created.id())
+        mockMvc().perform(delete("/{projectId}", created.id())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -311,7 +311,7 @@ class CreateProjectPostgresIntegrationTest {
                 "PUBLIC", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 
-        mockMvc().perform(post("/v1/projects/{projectId}/publish", created.id())
+        mockMvc().perform(post("/{projectId}/publish", created.id())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
@@ -343,7 +343,7 @@ class CreateProjectPostgresIntegrationTest {
     void wrapsMissingAuthenticationInApiResponse() throws Exception {
         SecurityContextHolder.clearContext();
 
-        mockMvc().perform(post("/v1/projects")
+        mockMvc().perform(post("/")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized())
@@ -358,19 +358,19 @@ class CreateProjectPostgresIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.info.title").value("Fiurozz Project Service API"))
                 .andExpect(jsonPath("$.paths.length()").value(12))
-                .andExpect(jsonPath("$['paths']['/v1/projects']['post']['operationId']")
+                .andExpect(jsonPath("$['paths']['/']['post']['operationId']")
                         .value("createProject"))
-                .andExpect(jsonPath("$['paths']['/v1/projects']['post']['security'][0]['bearerAuth']")
+                .andExpect(jsonPath("$['paths']['/']['post']['security'][0]['bearerAuth']")
                         .exists())
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}/tags']['put']['operationId']")
+                .andExpect(jsonPath("$['paths']['/{projectId}/tags']['put']['operationId']")
                         .value("replaceProjectTags"))
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}']['patch']['operationId']")
+                .andExpect(jsonPath("$['paths']['/{projectId}']['patch']['operationId']")
                         .value("updateProject"))
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}']['delete']['operationId']")
+                .andExpect(jsonPath("$['paths']['/{projectId}']['delete']['operationId']")
                         .value("deleteProject"))
-                .andExpect(jsonPath("$['paths']['/v1/projects/{projectId}/publish']['post']['operationId']")
+                .andExpect(jsonPath("$['paths']['/{projectId}/publish']['post']['operationId']")
                         .value("publishProject"))
-                .andExpect(jsonPath("$['paths']['/v1/projects']['post']['responses']['201']")
+                .andExpect(jsonPath("$['paths']['/']['post']['responses']['201']")
                         .exists())
                 .andExpect(jsonPath("$['components']['securitySchemes']['bearerAuth']['scheme']")
                         .value("bearer"));

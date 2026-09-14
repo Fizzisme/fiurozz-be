@@ -3,7 +3,7 @@ package com.philia.projectservice.catalog.api;
 import java.util.List;
 import java.util.UUID;
 
-/** The mutable project fields supplied by PATCH /v1/projects/{projectId}. */
+/** The mutable project fields supplied by PATCH /{projectId}. */
 public record UpdateProjectCommand(
         UUID projectId,
         long expectedVersion,

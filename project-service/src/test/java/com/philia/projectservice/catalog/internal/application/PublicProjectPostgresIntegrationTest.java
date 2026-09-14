@@ -45,7 +45,7 @@ class PublicProjectPostgresIntegrationTest {
         insertProject("Middle project", Instant.parse("2026-09-12T02:00:00Z"));
         insertProject("Oldest project", Instant.parse("2026-09-12T01:00:00Z"));
 
-        var firstPage = mockMvc().perform(get("/v1/projects")
+        var firstPage = mockMvc().perform(get("/")
                         .param("categorySlug", "e-commerce")
                         .param("subCategorySlug", "online-store")
                         .param("limit", "2"))
@@ -67,7 +67,7 @@ class PublicProjectPostgresIntegrationTest {
                 .path("nextCursor")
                 .asText();
 
-        mockMvc().perform(get("/v1/projects")
+        mockMvc().perform(get("/")
                         .param("categorySlug", "e-commerce")
                         .param("subCategorySlug", "online-store")
                         .param("limit", "2")
@@ -81,31 +81,31 @@ class PublicProjectPostgresIntegrationTest {
 
     @Test
     void rejectsMalformedCursor() throws Exception {
-        mockMvc().perform(get("/v1/projects").param("cursor", "malformed"))
+        mockMvc().perform(get("/").param("cursor", "malformed"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
     @Test
     void exposesSeededCatalogUsedByFrontendRoutes() throws Exception {
-        mockMvc().perform(get("/v1/categories"))
+        mockMvc().perform(get("/categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(8))
                 .andExpect(jsonPath("$.data.items[0].slug").value("e-commerce"))
                 .andExpect(jsonPath("$.data.items[0].icon").value("shopping-cart"));
 
-        mockMvc().perform(get("/v1/categories/{categoryId}/subcategories",
+        mockMvc().perform(get("/categories/{categoryId}/subcategories",
                         "00000000-0000-4000-8000-000000000001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(4))
                 .andExpect(jsonPath("$.data.items[0].slug").value("online-store"));
 
-        mockMvc().perform(get("/v1/tags").param("size", "50"))
+        mockMvc().perform(get("/tags").param("size", "50"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("PROJECT_TAGS_RETRIEVED"))
                 .andExpect(jsonPath("$.data.items.length()").value(15));
 
-        mockMvc().perform(get("/v1/tags").param("q", "spring"))
+        mockMvc().perform(get("/tags").param("q", "spring"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].slug").value("spring-boot"));
