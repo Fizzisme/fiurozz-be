@@ -1,0 +1,12 @@
+name: fiurozz
+
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    ports:
+      - "${AUTH_SERVICE_PORT:-8081}:8081"
