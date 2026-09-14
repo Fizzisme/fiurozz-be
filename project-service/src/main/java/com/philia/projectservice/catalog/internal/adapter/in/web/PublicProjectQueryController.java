@@ -36,7 +36,7 @@ public class PublicProjectQueryController {
         this.detailMapper = detailMapper;
     }
 
-    @GetMapping("/v1/projects")
+    @GetMapping
     public ResponseEntity<ApiResponse<PublicProjectCursorPageResponse>> searchProjects(
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(required = false) UUID categoryId, @RequestParam(required = false) UUID subCategoryId,
@@ -53,7 +53,7 @@ public class PublicProjectQueryController {
                 publicProjectMapper.toPageResponse(result)));
     }
 
-    @GetMapping("/v1/owners/{ownerId}/projects/{slug}")
+    @GetMapping("/owners/{ownerId}/{slug}")
     public ResponseEntity<ApiResponse<ProjectDetailResponse>> getPublicProjectBySlug(
             @PathVariable UUID ownerId, @PathVariable String slug) {
         var result = detailQuery.findPublicByOwnerAndSlug(ownerId, slug).orElseThrow(ProjectNotFoundException::new);

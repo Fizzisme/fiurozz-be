@@ -8,7 +8,6 @@ import com.philia.projectservice.shared.web.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -18,7 +17,6 @@ import java.util.UUID;
  * implemented documentation interface to keep this controller focused on orchestration.
  */
 @RestController
-@RequestMapping("/v1/projects")
 public final class ProjectQueryController implements GetProjectByIdApiDocumentation {
 
     private final GetProjectByIdUseCase getProjectByIdUseCase;
