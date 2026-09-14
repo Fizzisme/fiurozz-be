@@ -8,5 +8,10 @@ services:
     restart: unless-stopped
     env_file:
       - ./.env
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
     ports:
       - "${USER_SERVICE_PORT:-8082}:8082"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy

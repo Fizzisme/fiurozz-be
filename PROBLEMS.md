@@ -4,13 +4,9 @@ Cross-cutting issues that span more than one service. Issues local to a single s
 
 Reviewed: 2026-08-30, against the code on `main` (excludes `project-service`, developed independently).
 
-## 1. RabbitMQ is required by two services but provisioned nowhere
+## 1. RabbitMQ is required by two services but provisioned nowhere — FIXED 2026-09-14
 
-`auth-service` (Outbox relay) and `user-service` (event consumer) both hard-depend on RabbitMQ for the `account.created` flow — registration silently stops short of creating a user profile if it's missing. But no compose file in the repo defines a RabbitMQ container: `infrastructure/compose.yaml` (the shared local-dev infra) only has Redis and Zipkin, and neither service ships its own broker.
-
-**Impact:** a fresh clone following the root `README.md` setup steps has no working message broker; both services fall back to their hard-coded default (`amqp://guest:guest@localhost:5672`), which connects to nothing unless a developer happens to start RabbitMQ manually.
-
-**Fix:** add a `rabbitmq` service (with the management plugin, for visibility into queues/DLQs) to `infrastructure/compose.yaml`, and document it in the root README's getting-started steps.
+`auth-service` (Outbox relay) and `user-service` (event consumer) both hard-depend on RabbitMQ for the `account.created` flow — registration silently stops short of creating a user profile if it's missing. `infrastructure/compose.yaml` now defines a `rabbitmq` service (`rabbitmq:4-management-alpine`, management UI on `15672`), and `auth-service/compose.yaml` / `user-service/compose.yaml` point their respective connection env var at it when run via `docker compose up`. Native (non-Docker) dev still relies on both services' hard-coded `amqp://guest:guest@localhost:5672` default, which now resolves correctly since the container publishes that port to the host too.
 
 ## 2. Inconsistent env var name for the same RabbitMQ connection
 
@@ -20,11 +16,9 @@ Reviewed: 2026-08-30, against the code on `main` (excludes `project-service`, de
 
 **Fix:** standardize on one name (e.g. `RABBITMQ_URL`) across both services.
 
-## 3. RabbitMQ variable undocumented in either service's `.env.example`
+## 3. RabbitMQ variable undocumented in either service's `.env.example` — FIXED 2026-09-14
 
-Neither `auth-service/.env.example` nor `user-service/.env.example` lists the RabbitMQ URI variable at all (see problem 2 for the actual names used in code). Someone provisioning a new environment from the example file alone has no indication the variable exists or is required.
-
-**Fix:** add the variable (with its correct name per service, or the unified name once problem 2 is fixed) to both `.env.example` files.
+Both `auth-service/.env.example` (`RABBIT_MQ_URI=`) and `user-service/.env.example` (`RABBITMQ_URL=`) now list the variable, under each service's actual current name (problem 2 — the name mismatch itself — is still open).
 
 ## 4. Shared JWT secret has no enforced or documented single source of truth
 
