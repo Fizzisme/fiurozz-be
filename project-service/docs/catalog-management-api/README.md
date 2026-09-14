@@ -27,28 +27,29 @@ Phase 1 contains 15 endpoints:
 
 | # | Method | Endpoint | Authentication | Use case |
 |---:|---|---|---|---|
-| 1 | `POST` | `/api/v1/projects` | Required | `CreateProject` |
-| 2 | `GET` | `/api/v1/projects/{projectId}` | Optional | `GetProject` |
-| 3 | `PATCH` | `/api/v1/projects/{projectId}` | Required | `UpdateProject` |
-| 4 | `DELETE` | `/api/v1/projects/{projectId}` | Required | `DeleteProject` |
-| 5 | `GET` | `/api/v1/me/projects` | Required | `ListMyProjects` |
-| 6 | `PUT` | `/api/v1/projects/{projectId}/tags` | Required | `ReplaceProjectTags` |
-| 7 | `POST` | `/api/v1/projects/{projectId}/publish` | Required | `PublishProject` |
-| 8 | `POST` | `/api/v1/projects/{projectId}/archive` | Required | `ArchiveProject` |
-| 9 | `POST` | `/api/v1/projects/{projectId}/reopen` | Required | `ReopenProject` |
-| 10 | `PATCH` | `/api/v1/projects/{projectId}/visibility` | Required | `ChangeProjectVisibility` |
-| 11 | `GET` | `/api/v1/projects` | Public | `SearchPublishedProjects` |
-| 12 | `GET` | `/api/v1/owners/{ownerId}/projects/{slug}` | Public | `GetPublishedProjectBySlug` |
-| 13 | `GET` | `/api/v1/categories` | Public | `ListProjectCategories` |
-| 14 | `GET` | `/api/v1/categories/{categoryId}/subcategories` | Public | `ListProjectSubCategories` |
-| 15 | `GET` | `/api/v1/tags` | Public | `SearchProjectTags` |
+| 1 | `POST` | `/v1/projects` | Required | `CreateProject` |
+| 2 | `GET` | `/v1/projects/{projectId}` | Optional | `GetProject` |
+| 3 | `PATCH` | `/v1/projects/{projectId}` | Required | `UpdateProject` |
+| 4 | `DELETE` | `/v1/projects/{projectId}` | Required | `DeleteProject` |
+| 5 | `GET` | `/v1/me/projects` | Required | `ListMyProjects` |
+| 6 | `PUT` | `/v1/projects/{projectId}/tags` | Required | `ReplaceProjectTags` |
+| 7 | `POST` | `/v1/projects/{projectId}/publish` | Required | `PublishProject` |
+| 8 | `POST` | `/v1/projects/{projectId}/archive` | Required | `ArchiveProject` |
+| 9 | `POST` | `/v1/projects/{projectId}/reopen` | Required | `ReopenProject` |
+| 10 | `PATCH` | `/v1/projects/{projectId}/visibility` | Required | `ChangeProjectVisibility` |
+| 11 | `GET` | `/v1/projects` | Public | `SearchPublishedProjects` |
+| 12 | `GET` | `/v1/owners/{ownerId}/projects/{slug}` | Public | `GetPublishedProjectBySlug` |
+| 13 | `GET` | `/v1/categories` | Public | `ListProjectCategories` |
+| 14 | `GET` | `/v1/categories/{categoryId}/subcategories` | Public | `ListProjectSubCategories` |
+| 15 | `GET` | `/v1/tags` | Public | `SearchProjectTags` |
 
 ## Common conventions
 
 ### Base path and content types
 
 ```text
-Base path:    /api/v1
+Service path: /v1
+Gateway path: /api/project/v1
 Request:      application/json
 Response:     application/json
 Error:        application/json
@@ -339,7 +340,7 @@ representation may omit it because source access is not implemented yet.
 ## 1. Create Project
 
 ```http
-POST /api/v1/projects
+POST /v1/projects
 Authorization: Bearer <access-token>
 Content-Type: application/json
 ```
@@ -360,7 +361,7 @@ Success:
 
 ```http
 HTTP/1.1 201 Created
-Location: /api/v1/projects/ff82810c-bb24-46cf-b25f-48cb96532cda
+Location: /v1/projects/ff82810c-bb24-46cf-b25f-48cb96532cda
 ETag: "0"
 ```
 
@@ -373,7 +374,7 @@ Errors: `400`, `401`, `404`, `409`.
 ## 2. Get Project by ID
 
 ```http
-GET /api/v1/projects/{projectId}
+GET /v1/projects/{projectId}
 Authorization: Bearer <access-token>  # optional
 ```
 
@@ -395,7 +396,7 @@ Errors: `400`, `404`.
 ## 3. Update Project
 
 ```http
-PATCH /api/v1/projects/{projectId}
+PATCH /v1/projects/{projectId}
 Authorization: Bearer <access-token>
 If-Match: "2"
 Content-Type: application/json
@@ -418,7 +419,7 @@ Errors: `400`, `401`, `403`, `404`, `409`, `412`.
 ## 4. Soft-delete Project
 
 ```http
-DELETE /api/v1/projects/{projectId}
+DELETE /v1/projects/{projectId}
 Authorization: Bearer <access-token>
 If-Match: "3"
 ```
@@ -442,7 +443,7 @@ Errors: `401`, `403`, `404`, `409`, `412`.
 ## 5. List My Projects
 
 ```http
-GET /api/v1/me/projects?status=DRAFT&visibility=PRIVATE&q=backend&page=0&size=20&sort=createdAt,desc
+GET /v1/me/projects?status=DRAFT&visibility=PRIVATE&q=backend&page=0&size=20&sort=createdAt,desc
 Authorization: Bearer <access-token>
 ```
 
@@ -471,7 +472,7 @@ Errors: `400`, `401`.
 ## 6. Replace Project Tags
 
 ```http
-PUT /api/v1/projects/{projectId}/tags
+PUT /v1/projects/{projectId}/tags
 Authorization: Bearer <access-token>
 If-Match: "3"
 Content-Type: application/json
@@ -502,7 +503,7 @@ Errors: `400`, `401`, `403`, `404`, `409`, `412`.
 ## 7. Publish Project
 
 ```http
-POST /api/v1/projects/{projectId}/publish
+POST /v1/projects/{projectId}/publish
 Authorization: Bearer <access-token>
 If-Match: "4"
 ```
@@ -532,7 +533,7 @@ Errors: `401`, `403`, `404`, `409`, `412`.
 ## 8. Archive Project
 
 ```http
-POST /api/v1/projects/{projectId}/archive
+POST /v1/projects/{projectId}/archive
 Authorization: Bearer <access-token>
 If-Match: "5"
 ```
@@ -555,7 +556,7 @@ Errors: `401`, `403`, `404`, `409`, `412`.
 ## 9. Reopen Project
 
 ```http
-POST /api/v1/projects/{projectId}/reopen
+POST /v1/projects/{projectId}/reopen
 Authorization: Bearer <access-token>
 If-Match: "6"
 ```
@@ -585,7 +586,7 @@ Errors: `401`, `403`, `404`, `409`, `412`.
 ## 10. Change Project Visibility
 
 ```http
-PATCH /api/v1/projects/{projectId}/visibility
+PATCH /v1/projects/{projectId}/visibility
 Authorization: Bearer <access-token>
 If-Match: "5"
 Content-Type: application/json
@@ -615,7 +616,7 @@ Errors: `400`, `401`, `403`, `404`, `412`.
 ## 11. Public Project Search and Discovery
 
 ```http
-GET /api/v1/projects?q=spring&categoryId=<uuid>&subCategoryId=<uuid>&tag=backend&ownerId=<uuid>&page=0&size=20&sort=newest
+GET /v1/projects?q=spring&categorySlug=developer-tools&subCategorySlug=api-platform&tag=backend&ownerId=<uuid>&cursor=<opaque>&limit=20&sort=newest
 ```
 
 Supported parameters:
@@ -625,10 +626,12 @@ Supported parameters:
 | `q` | Query title and short description. |
 | `categoryId` | Include Projects whose subcategory belongs to the Category. |
 | `subCategoryId` | Include Projects in one subcategory. |
+| `categorySlug` | Slug alternative used by frontend category routes. |
+| `subCategorySlug` | Slug alternative used by frontend subcategory routes. |
 | `tag` | Include Projects assigned to the Tag slug. |
 | `ownerId` | Include public Projects from one owner. |
-| `page` | Zero-based page. |
-| `size` | `1` to `50`. |
+| `cursor` | Opaque continuation token returned by the preceding response. |
+| `limit` | `1` to `50`; defaults to `20`. |
 | `sort` | Initially `newest` or `oldest`. |
 
 The server always applies:
@@ -646,14 +649,26 @@ The current indexes support subcategory/status/visibility/date discovery, but
 not text search. `ILIKE` is acceptable for an initial small dataset. Add a new
 Liquibase full-text or trigram index before relying on text search at scale.
 
-Success: `200 OK` with paginated public Project summaries.
+Success: `200 OK` with public Project cards and cursor metadata:
+
+```json
+{
+  "items": [],
+  "nextCursor": null,
+  "hasMore": false
+}
+```
+
+Cards contain nested Category, Subcategory, and Owner references plus the
+technology stack required by the frontend discovery view. The cursor is based
+on `(published_at, project_id)` so equal publication timestamps remain stable.
 
 Errors: `400`.
 
 ## 12. Get Public Project by Owner and Slug
 
 ```http
-GET /api/v1/owners/{ownerId}/projects/{slug}
+GET /v1/owners/{ownerId}/projects/{slug}
 ```
 
 The owner must be present in the path because the database guarantees active
@@ -670,14 +685,16 @@ Access rules:
 | `ARCHIVED` | `404 Not Found` |
 | Soft deleted | `404 Not Found` |
 
-Success: `200 OK` with the public Project detail representation.
+Success: `200 OK` with the public Project detail representation. Image media
+are sorted by `sort_order`, and `githubUrl` identifies the active primary
+repository when one is connected.
 
 Errors: `400`, `404`.
 
 ## 13. List Project Categories
 
 ```http
-GET /api/v1/categories
+GET /v1/categories
 ```
 
 Always apply:
@@ -715,7 +732,7 @@ Success: `200 OK`.
 ## 14. List Project Subcategories
 
 ```http
-GET /api/v1/categories/{categoryId}/subcategories
+GET /v1/categories/{categoryId}/subcategories
 ```
 
 Always apply:
@@ -756,7 +773,7 @@ Errors: `400`, `404`.
 ## 15. Search Project Tags
 
 ```http
-GET /api/v1/tags?q=spring&page=0&size=20
+GET /v1/tags?q=spring&page=0&size=20
 ```
 
 Always apply:

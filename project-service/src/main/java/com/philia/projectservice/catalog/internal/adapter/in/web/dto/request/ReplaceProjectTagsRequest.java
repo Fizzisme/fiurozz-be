@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.UUID;
 
-/** JSON body for PUT /api/v1/projects/{projectId}/tags. */
+/** JSON body for PUT /v1/projects/{projectId}/tags. */
 public record ReplaceProjectTagsRequest(
         @NotNull(message = "tagIds is required")
         @Size(max = 10, message = "A project may have at most 10 tags")

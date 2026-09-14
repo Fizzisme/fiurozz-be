@@ -145,6 +145,28 @@ public class ProjectJpaEntity {
         tags.addAll(replacementTags);
     }
 
+    public void updateOwnerFields(
+            ProjectSubCategoryJpaEntity subCategory,
+            String title,
+            String slug,
+            String shortDescription,
+            String description,
+            String demoUrl,
+            List<String> techStack,
+            List<String> features,
+            Instant updatedAt
+    ) {
+        this.subCategory = subCategory;
+        this.title = title;
+        this.slug = slug;
+        this.shortDescription = shortDescription;
+        this.description = description;
+        this.demoUrl = demoUrl;
+        this.techStack = new ArrayList<>(techStack);
+        this.features = new ArrayList<>(features);
+        this.updatedAt = updatedAt;
+    }
+
     public UUID getId() { return id; }
     public UUID getOwnerId() { return ownerId; }
     public String getOwnerDisplayName() { return ownerDisplayName; }

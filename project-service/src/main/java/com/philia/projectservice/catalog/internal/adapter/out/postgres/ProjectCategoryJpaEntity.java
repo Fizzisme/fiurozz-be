@@ -22,6 +22,9 @@ public class ProjectCategoryJpaEntity {
     private String title;
     private String icon;
 
+    @Column(name = "sort_order")
+    private int sortOrder;
+
     @Column(name = "is_active")
     private boolean active;
 
@@ -49,6 +52,10 @@ public class ProjectCategoryJpaEntity {
 
     public String getIcon() {
         return icon;
+    }
+
+    public int getSortOrder() {
+        return sortOrder;
     }
 
     public boolean isActive() {

@@ -16,9 +16,17 @@ import java.util.UUID;
 public class JpaProjectDetailQuery implements ProjectDetailQuery {
 
     private final JpaProjectDetailRepository projectRepository;
+    private final JpaProjectMediaRepository mediaRepository;
+    private final JpaProjectRepositoryLinkRepository repositoryLinkRepository;
 
-    public JpaProjectDetailQuery(JpaProjectDetailRepository projectRepository) {
+    public JpaProjectDetailQuery(
+            JpaProjectDetailRepository projectRepository,
+            JpaProjectMediaRepository mediaRepository,
+            JpaProjectRepositoryLinkRepository repositoryLinkRepository
+    ) {
         this.projectRepository = projectRepository;
+        this.mediaRepository = mediaRepository;
+        this.repositoryLinkRepository = repositoryLinkRepository;
     }
 
     @Override
@@ -27,6 +35,12 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
             return Optional.empty();
         }
         return projectRepository.findActiveDetailById(projectId).map(this::toResult);
+    }
+
+    @Override
+    public Optional<ProjectDetailResult> findPublicByOwnerAndSlug(UUID ownerId, String slug) {
+        if (ownerId == null || slug == null || slug.isBlank()) return Optional.empty();
+        return projectRepository.findPublicDetailByOwnerAndSlug(ownerId, slug.trim()).map(this::toResult);
     }
 
     private ProjectDetailResult toResult(ProjectJpaEntity project) {
@@ -51,7 +65,9 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
                 project.getShortDescription(),
                 project.getDescription(),
                 project.getThumbnailUrl(),
+                mediaRepository.findImageUrlsByProjectId(project.getId()),
                 project.getDemoUrl(),
+                repositoryLinkRepository.findPrimaryRepositoryUrl(project.getId()).orElse(null),
                 project.getTechStack(),
                 project.getFeatures(),
                 tags,

@@ -41,3 +41,24 @@ routes:
       burst: 5
 
     auth_mode: optional
+
+  - name: project
+    prefix: /api/project
+    upstream: ${PROJECT_SERVICE}
+
+    timeout: 5s
+
+    retry:
+      attempts: 3
+      base_delay: 1s
+      max_delay: 3s
+
+    breaker:
+      enabled: true
+
+    rate_limit:
+      requests: 30
+      window: 1m
+      burst: 10
+
+    auth_mode: optional

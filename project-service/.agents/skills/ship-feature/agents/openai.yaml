@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ship Project Feature"
+  short_description: "Test, preview, commit, push, and open a draft pull request."
+  default_prompt: "Ship the current project-service feature after verifying tests and Docker preview."

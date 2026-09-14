@@ -18,7 +18,7 @@ import java.util.UUID;
  * implemented documentation interface to keep this controller focused on orchestration.
  */
 @RestController
-@RequestMapping("/api/v1/projects")
+@RequestMapping("/v1/projects")
 public final class ProjectQueryController implements GetProjectByIdApiDocumentation {
 
     private final GetProjectByIdUseCase getProjectByIdUseCase;

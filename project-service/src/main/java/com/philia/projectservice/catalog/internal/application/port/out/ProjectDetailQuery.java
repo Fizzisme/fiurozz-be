@@ -15,4 +15,8 @@ public interface ProjectDetailQuery {
      * Finds a non-deleted project. An empty result also represents a soft-deleted project.
      */
     Optional<ProjectDetailResult> findActiveById(UUID projectId);
+
+    default Optional<ProjectDetailResult> findPublicByOwnerAndSlug(UUID ownerId, String slug) {
+        return Optional.empty();
+    }
 }

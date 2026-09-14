@@ -18,7 +18,9 @@ public record ProjectDetailResult(
         String shortDescription,
         String description,
         String thumbnailUrl,
+        List<String> images,
         String demoUrl,
+        String githubUrl,
         List<String> techStack,
         List<String> features,
         List<Tag> tags,
@@ -33,9 +35,41 @@ public record ProjectDetailResult(
 ) {
 
     public ProjectDetailResult {
+        images = List.copyOf(images);
         techStack = List.copyOf(techStack);
         features = List.copyOf(features);
         tags = List.copyOf(tags);
+    }
+
+    /**
+     * Compatibility constructor for command handlers that do not load media or repository details.
+     */
+    public ProjectDetailResult(
+            UUID id,
+            Owner owner,
+            Category category,
+            SubCategory subCategory,
+            String title,
+            String slug,
+            String shortDescription,
+            String description,
+            String thumbnailUrl,
+            String demoUrl,
+            List<String> techStack,
+            List<String> features,
+            List<Tag> tags,
+            String status,
+            String visibility,
+            String sourceVisibility,
+            Statistics statistics,
+            Instant publishedAt,
+            Instant createdAt,
+            Instant updatedAt,
+            long version
+    ) {
+        this(id, owner, category, subCategory, title, slug, shortDescription, description, thumbnailUrl,
+                List.of(), demoUrl, null, techStack, features, tags, status, visibility, sourceVisibility,
+                statistics, publishedAt, createdAt, updatedAt, version);
     }
 
     /**
@@ -52,7 +86,9 @@ public record ProjectDetailResult(
                 shortDescription,
                 description,
                 thumbnailUrl,
+                images,
                 demoUrl,
+                githubUrl,
                 techStack,
                 features,
                 resolvedTags,
