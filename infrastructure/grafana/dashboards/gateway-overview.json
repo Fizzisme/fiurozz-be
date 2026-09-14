@@ -2,10 +2,10 @@
   "title": "Gateway Overview",
   "uid": "gateway-overview",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "timezone": "browser",
-  "time": { "from": "now-1h", "to": "now" },
+  "time": { "from": "now-15m", "to": "now" },
   "refresh": "10s",
   "tags": ["fiurozz", "api-gateway"],
   "panels": [
@@ -32,7 +32,7 @@
       "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
       "targets": [
         {
-          "expr": "sum(rate(gateway_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(gateway_http_requests_total[5m])), 1)",
+          "expr": "(sum(rate(gateway_http_requests_total{status=~\"5..\"}[5m])) or vector(0)) / clamp_min(sum(rate(gateway_http_requests_total[5m])) or vector(0), 1)",
           "refId": "A"
         }
       ]
