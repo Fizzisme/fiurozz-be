@@ -2,4 +2,7 @@ name: fiurozz
 
 include:
   - ./infrastructure/compose.yaml
+  - ./api-gateway/compose.yaml
+  - ./auth-service/compose.yaml
+  - ./user-service/compose.yaml
   - ./project-service/compose.yaml
