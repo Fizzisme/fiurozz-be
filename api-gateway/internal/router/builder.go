@@ -36,6 +36,7 @@ func buildHandlers(
 			handlers,
 			middleware.RateLimit(
 				manager,
+				route.Name,
 				rate.Limit(float64(cfg.Requests)/cfg.Window.Seconds()),
 				cfg.Burst,
 			),
