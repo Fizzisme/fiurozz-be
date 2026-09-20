@@ -108,9 +108,9 @@ model UserSetting {
 
   isPrivate Boolean @default(false) @map("is_private")
 
-  showEmail Boolean @default(false) @map("show_email")
+  showEmail Boolean @default(true) @map("show_email")
 
-  showBirthday Boolean @default(false) @map("show_birthday")
+  showBirthday Boolean @default(true) @map("show_birthday")
 
   allowMessage Boolean @default(true) @map("allow_message")
 

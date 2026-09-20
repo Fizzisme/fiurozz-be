@@ -3,6 +3,7 @@ import type {Request} from 'express';
 import {PrismaService} from "../prisma/prisma.service.js";
 import {Prisma} from "../generated/prisma/client.js";
 import {Occupation} from "../generated/prisma/enums.js";
+import type {UpdateProfileDto} from "./dto/update-profile.dto.js";
 
 const MAX_LIMIT = 100;
 
@@ -89,6 +90,76 @@ export class UserService {
 
 
         };
+    }
+
+    // Same X-User-Id trust as getMe -- a user can only ever update their
+    // own profile via this route, never someone else's.
+    async updateProfile(req: Request, dto: UpdateProfileDto) {
+        const userId = req.headers['x-user-id'] as string | undefined;
+
+        if (!userId) {
+            throw new UnauthorizedException('User not found.');
+        }
+
+        const { skills, ...profileFields } = dto;
+
+        try {
+            await this.prisma.$transaction(async (tx) => {
+                // Always checked, even if the body only touches `skills` --
+                // gives a uniform 404 instead of leaning on whichever of the
+                // two writes below happens to run.
+                await tx.userProfile.findUniqueOrThrow({ where: { userId } });
+
+                // Spreading is safe for PATCH semantics: Prisma skips any
+                // key whose value is `undefined` (fields the client didn't
+                // send), only writing the ones actually present in the body.
+                // Skipped entirely when empty -- an empty `data: {}` isn't
+                // guaranteed to be a safe no-op across Prisma versions.
+                if (Object.keys(profileFields).length > 0) {
+                    await tx.userProfile.update({
+                        where: { userId },
+                        data: { ...profileFields },
+                    });
+                }
+
+                if (skills !== undefined) {
+                    await this.syncSkills(tx, userId, skills);
+                }
+            });
+        } catch (err) {
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+                throw new NotFoundException('User profile not found.');
+            }
+            throw err;
+        }
+
+        return this.getMe(req);
+    }
+
+    // Replaces the user's full skill list with `names` (not a diff/append).
+    // Skill is a shared catalog (Skill.name is unique) -- find-or-create
+    // each one, then relink UserSkill to exactly this set.
+    private async syncSkills(tx: Prisma.TransactionClient, userId: string, names: string[]) {
+        const normalized = [...new Set(names.map((n) => n.trim().toLowerCase()).filter(Boolean))];
+
+        const skills = await Promise.all(
+            normalized.map((name) =>
+                tx.skill.upsert({
+                    where: { name },
+                    create: { name },
+                    update: {},
+                }),
+            ),
+        );
+
+        await tx.userSkill.deleteMany({
+            where: { userId, skillId: { notIn: skills.map((s) => s.id) } },
+        });
+
+        await tx.userSkill.createMany({
+            data: skills.map((s) => ({ userId, skillId: s.id })),
+            skipDuplicates: true,
+        });
     }
 
 

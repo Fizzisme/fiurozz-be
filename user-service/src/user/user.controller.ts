@@ -1,5 +1,6 @@
-import {Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Query, Req} from '@nestjs/common';
+import {Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Query, Req} from '@nestjs/common';
 import {UserService} from "./user.service.js";
+import {UpdateProfileDto} from "./dto/update-profile.dto.js";
 import type {Request} from 'express';
 
 @Controller()
@@ -10,6 +11,11 @@ export class UserController {
     @Get('me')
     getMe(@Req() req: Request){
         return this.userService.getMe(req);
+    }
+
+    @Patch('me')
+    updateMe(@Req() req: Request, @Body() dto: UpdateProfileDto){
+        return this.userService.updateProfile(req, dto);
     }
 
     @Get()
