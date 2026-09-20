@@ -1,4 +1,4 @@
-import {Controller, Get, Req} from '@nestjs/common';
+import {Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Query, Req} from '@nestjs/common';
 import {UserService} from "./user.service.js";
 import type {Request} from 'express';
 
@@ -9,7 +9,30 @@ export class UserController {
 
     @Get('me')
     getMe(@Req() req: Request){
-
         return this.userService.getMe(req);
+    }
+
+    @Get()
+    getUsers(
+        @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+        @Query('cursor') cursor?: string,
+        @Query('occupation') occupation?: string,
+        @Query('skills') skills?: string,
+        @Query('sort') sort?: string,
+    ){
+        return this.userService.getUsers({
+            limit,
+            cursor,
+            occupation: occupation?.split(',').map((v) => v.trim()).filter(Boolean),
+            skills: skills?.split(',').map((v) => v.trim()).filter(Boolean),
+            sort,
+        });
+    }
+
+    // :identifier accepts either a user id (UUID) or a displayName --
+    // both are unique, see user.service.ts#getUser for how it tells them apart.
+    @Get(':identifier')
+    getUser(@Param('identifier') identifier: string){
+        return this.userService.getUser(identifier);
     }
 }

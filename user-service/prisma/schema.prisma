@@ -34,16 +34,36 @@ enum SocialPlatform {
   OTHER
 }
 
+enum Occupation {
+  STUDENT
+  FRONTEND_DEVELOPER
+  BACKEND_DEVELOPER
+  FULLSTACK_DEVELOPER
+  MOBILE_DEVELOPER
+  SOFTWARE_ENGINEER
+  DEVOPS_ENGINEER
+  DATA_ENGINEER
+  DATA_ANALYST
+  UI_UX_DESIGNER
+  PRODUCT_MANAGER
+  QA
+  AI_ENGINEER
+  BA
+  OTHER
+}
+
 model User {
   id String @id @db.Uuid
   profile   UserProfile?
   settings  UserSetting?
   links     SocialLink[]
+  skills    UserSkill[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
+  @@index([deletedAt, createdAt])
   @@map("users")
 }
 
@@ -52,7 +72,7 @@ model UserProfile {
 
   email String @unique
 
-  displayName String @map("display_name") @db.VarChar(100)
+  displayName String @unique @map("display_name") @db.VarChar(100)
 
   fullName String? @map("full_name") @db.VarChar(150)
 
@@ -62,7 +82,7 @@ model UserProfile {
 
   bio String? @db.VarChar(500)
 
-  occupation String? @db.VarChar(100)
+  occupation Occupation?
 
   company String? @db.VarChar(100)
 
@@ -80,7 +100,6 @@ model UserProfile {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([displayName])
   @@map("user_profiles")
 }
 
@@ -123,4 +142,28 @@ model SocialLink {
 
   @@index([userId])
   @@map("social_links")
+}
+
+model Skill {
+  id String @id @default(uuid()) @db.Uuid
+
+  name String @unique @db.VarChar(50)
+
+  users UserSkill[]
+
+  @@map("skills")
+}
+
+model UserSkill {
+  userId String @map("user_id") @db.Uuid
+
+  skillId String @map("skill_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@index([skillId])
+  @@map("user_skills")
 }
