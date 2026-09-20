@@ -8,6 +8,11 @@ import {ValidationPipe} from "@nestjs/common";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Without this, Node kills the process on SIGTERM/SIGINT immediately --
+  // in-flight requests get cut and OnModuleDestroy hooks (Prisma
+  // $disconnect) never run.
+  app.enableShutdownHooks();
+
   app.useGlobalPipes(new ValidationPipe(
       {
         whitelist: true,
