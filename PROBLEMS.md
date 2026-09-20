@@ -86,6 +86,16 @@ Both `auth-service` and `user-service` have Jest configured (`package.json` `tes
 
 **Fix:** start with the highest-value paths per service — token issuance/verification and the outbox relay for `auth-service`; the `account.created` consumer's idempotency and retry/DLQ logic for `user-service` — since those are exactly the places where a silent regression would be hardest to notice manually.
 
+## 12. `auth-service`/`user-service` DB connection pooling not ready for a self-hosted, multi-instance Postgres
+
+Both services' `PrismaService` now configure sane `pg.Pool` timeouts (`max`, `idleTimeoutMillis`, `connectionTimeoutMillis`, `keepAlive`, all via `DB_POOL_*` env vars — fixed 2026-09-19, see git history) and connect/disconnect on the Nest module lifecycle. That fixed the client-side symptom (multi-second first-request latency, connections silently dying after 10s idle). It does **not** cover what changes when `DATABASE_URL` stops pointing at Neon and starts pointing at a self-hosted Postgres on a dedicated VPS (the intended next step per project owner):
+
+- **Neon's `-pooler` hostname is PgBouncer, provided for free.** Each service instance still opens its own client-side pool (`max: 10` each); Neon's pooler is what keeps that from exhausting Postgres's real backend connections as more services/instances are added. A self-hosted Postgres has no equivalent unless one is installed — `max_connections` defaults to 100, and `auth-service` + `user-service` + any future service, each possibly running more than one instance, can hit that ceiling with room to spare.
+- **Fix:** install PgBouncer (transaction pooling mode) on the DB VPS itself; point every service's `DATABASE_URL` at PgBouncer's port (typically `6432`), not Postgres's `5432` directly.
+- **Gotcha to remember when that happens:** PgBouncer transaction-pooling mode doesn't support session-level prepared statements. Prisma's `pg` driver adapter needs `?pgbouncer=true` appended to the connection string in that mode, or queries fail at runtime with confusing prepared-statement errors that don't point at the actual cause.
+- **Also Neon-specific, will resolve itself on migration:** free-tier compute auto-suspend after idle (the original cause of the multi-second cold start) has no client-side fix — it goes away once Postgres is self-hosted and always-on, or on a paid Neon tier with autosuspend disabled.
+- **Separately worth doing regardless of host:** both `.env`s currently use `sslmode=require`, which (per `pg`'s own deprecation warning) does not verify the server's identity. Production should use `sslmode=verify-full` with the DB server's CA certificate once that's provisioned.
+
 ## How to use this document
 
 When you fix one of these, update this file (mark it resolved with a one-line note and date, or delete the entry if it's fully gone) rather than leaving it to go stale — this file is only useful if it reflects the code, not a point-in-time snapshot. The same applies to each service's own `PROBLEMS.md`.
