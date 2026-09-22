@@ -1,7 +1,7 @@
-import {Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Query, Req} from '@nestjs/common';
+import {Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, Patch, Query} from '@nestjs/common';
 import {UserService} from "./user.service.js";
 import {UpdateProfileDto} from "./dto/update-profile.dto.js";
-import type {Request} from 'express';
+import {UserId} from "../common/decorators/user-id.decorator.js";
 
 @Controller()
 export class UserController {
@@ -9,13 +9,13 @@ export class UserController {
     constructor(private readonly userService: UserService) {}
 
     @Get('me')
-    getMe(@Req() req: Request){
-        return this.userService.getMe(req);
+    getMe(@UserId() userId: string){
+        return this.userService.getMe(userId);
     }
 
     @Patch('me')
-    updateMe(@Req() req: Request, @Body() dto: UpdateProfileDto){
-        return this.userService.updateProfile(req, dto);
+    updateMe(@UserId() userId: string, @Body() dto: UpdateProfileDto){
+        return this.userService.updateProfile(userId, dto);
     }
 
     @Get()

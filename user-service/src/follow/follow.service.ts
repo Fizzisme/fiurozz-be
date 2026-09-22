@@ -1,5 +1,4 @@
-import {Injectable, UnauthorizedException, NotFoundException, BadRequestException} from '@nestjs/common';
-import type {Request} from 'express';
+import {Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
 import {PrismaService} from "../prisma/prisma.service.js";
 import {Prisma} from "../generated/prisma/client.js";
 
@@ -18,17 +17,6 @@ type FollowSummaryUser = Prisma.UserGetPayload<{ include: { profile: true } }>;
 export class FollowService {
 
     constructor(private readonly prisma: PrismaService) {
-    }
-
-    // Same X-User-Id trust as UserService -- see root/user-service CLAUDE.md.
-    private requireUserId(req: Request): string {
-        const userId = req.headers['x-user-id'] as string | undefined;
-
-        if (!userId) {
-            throw new UnauthorizedException('User not found.');
-        }
-
-        return userId;
     }
 
     // follower_id/followee_id are @db.Uuid columns -- reject a malformed id
@@ -55,8 +43,7 @@ export class FollowService {
     // duplicate via ON CONFLICT DO NOTHING, so it never throws and never
     // leaves the transaction in Postgres's aborted-transaction state --
     // unlike catching a unique-constraint error from a plain `create`.
-    async follow(req: Request, targetId: string) {
-        const followerId = this.requireUserId(req);
+    async follow(followerId: string, targetId: string) {
         this.assertValidId(targetId);
 
         if (followerId === targetId) {
@@ -94,8 +81,7 @@ export class FollowService {
     }
 
     // Idempotent: unfollowing someone you don't follow is a no-op, not a 404.
-    async unfollow(req: Request, targetId: string) {
-        const followerId = this.requireUserId(req);
+    async unfollow(followerId: string, targetId: string) {
         this.assertValidId(targetId);
 
         await this.prisma.$transaction(async (tx) => {

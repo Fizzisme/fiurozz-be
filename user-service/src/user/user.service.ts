@@ -1,5 +1,4 @@
-import {Injectable, UnauthorizedException, NotFoundException, BadRequestException} from '@nestjs/common';
-import type {Request} from 'express';
+import {Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
 import {PrismaService} from "../prisma/prisma.service.js";
 import {Prisma} from "../generated/prisma/client.js";
 import {Occupation} from "../generated/prisma/enums.js";
@@ -34,22 +33,9 @@ export class UserService {
     constructor(private readonly prisma: PrismaService) {
     }
 
-    // Reads the caller's identity from X-User-Id, a header the API
-    // Gateway attaches only after it has already verified the JWT.
-    // This service trusts that header completely and never re-verifies
-    // the token itself -- see network policy: this service only
-    // accepts traffic originating from the Gateway.
-    async getMe(req: Request) {
-        const userId = req.headers['x-user-id'] as string | undefined;
-
-        if (!userId) {
-            // Should be unreachable in practice -- the Gateway's
-            // JWTAuth middleware guarantees this header is present
-            // for any authenticated route. Guarding anyway in case
-            // this endpoint is ever misconfigured as AuthOptional.
-            throw new UnauthorizedException('User not found.');
-        }
-
+    // userId comes from the @UserId() decorator -- see its header-trust
+    // comment for the X-User-Id / Gateway contract this relies on.
+    async getMe(userId: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
@@ -94,13 +80,7 @@ export class UserService {
 
     // Same X-User-Id trust as getMe -- a user can only ever update their
     // own profile via this route, never someone else's.
-    async updateProfile(req: Request, dto: UpdateProfileDto) {
-        const userId = req.headers['x-user-id'] as string | undefined;
-
-        if (!userId) {
-            throw new UnauthorizedException('User not found.');
-        }
-
+    async updateProfile(userId: string, dto: UpdateProfileDto) {
         const { skills, ...profileFields } = dto;
 
         try {
@@ -133,7 +113,7 @@ export class UserService {
             throw err;
         }
 
-        return this.getMe(req);
+        return this.getMe(userId);
     }
 
     // Replaces the user's full skill list with `names` (not a diff/append).

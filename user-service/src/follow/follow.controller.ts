@@ -1,6 +1,6 @@
-import {Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query, Req} from '@nestjs/common';
-import type {Request} from 'express';
+import {Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query} from '@nestjs/common';
 import {FollowService} from "./follow.service.js";
+import {UserId} from "../common/decorators/user-id.decorator.js";
 
 // Routes here are all two-segment (`:id/follow`, `:id/followers`, ...), so
 // they never collide with UserController's single-segment `GET :identifier`
@@ -12,13 +12,13 @@ export class FollowController {
     constructor(private readonly followService: FollowService) {}
 
     @Post(':id/follow')
-    follow(@Req() req: Request, @Param('id') id: string) {
-        return this.followService.follow(req, id);
+    follow(@UserId() userId: string, @Param('id') id: string) {
+        return this.followService.follow(userId, id);
     }
 
     @Delete(':id/follow')
-    unfollow(@Req() req: Request, @Param('id') id: string) {
-        return this.followService.unfollow(req, id);
+    unfollow(@UserId() userId: string, @Param('id') id: string) {
+        return this.followService.unfollow(userId, id);
     }
 
     @Get(':id/followers')
