@@ -51,7 +51,7 @@ public interface UpdateProjectApiDocumentation {
                             schema = @Schema(implementation = ApiErrorResponseDocumentation.class))
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "409", description = "The slug conflicts, subcategory is unavailable, or project is archived.",
+                    responseCode = "409", description = "The subcategory is unavailable or the project is archived.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiErrorResponseDocumentation.class))
             ),

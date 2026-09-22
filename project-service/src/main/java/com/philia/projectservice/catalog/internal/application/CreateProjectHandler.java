@@ -61,7 +61,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
         }
 
         var actor = currentActor.getRequiredActor();
-        var slug = ProjectSlug.from(command.slug());
+        var slug = ProjectSlug.fromTitle(command.title());
         var visibility = ProjectVisibility.fromNullable(command.visibility());
         var tagIds = uniqueTagIds(command.tagIds());
 

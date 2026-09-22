@@ -29,8 +29,9 @@ public interface CreateProjectApiDocumentation {
             description = """
                     Creates a new draft project for the authenticated owner.
 
-                    The service validates the subcategory and tags, normalizes the slug and
-                    technology stack, and persists the project and its tags in one transaction.
+                    The service validates the subcategory and tags, generates the slug from the
+                    title, normalizes the technology stack, and persists the project and its tags
+                    in one transaction.
                     Owner information is obtained from authentication and cannot be supplied in
                     the request body.
                     """
@@ -103,7 +104,6 @@ public interface CreateProjectApiDocumentation {
                                             {
                                               "subCategoryId": "939dbfc5-e00c-40d8-9351-499df2562304",
                                               "title": "Fiurozz Backend",
-                                              "slug": "fiurozz-backend",
                                               "shortDescription": "A platform for publishing software projects.",
                                               "description": "The complete project description.",
                                               "demoUrl": "https://demo.example.com",

@@ -20,7 +20,6 @@ class CreateProjectWebMapperTest {
         var request = new CreateProjectRequest(
                 subCategoryId,
                 "Fiurozz Backend",
-                "fiurozz-backend",
                 "Short description",
                 "Full description",
                 "https://demo.example.com",

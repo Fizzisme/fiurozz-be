@@ -23,6 +23,15 @@ public class CatalogBrowseController {
                 new ItemsResponse<>(query.listCategories())));
     }
 
+    @GetMapping("/categories/tree")
+    public ResponseEntity<ApiResponse<ItemsResponse<CatalogBrowseQuery.CategoryTree>>> listCategoryTree() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "PROJECT_CATEGORY_TREE_RETRIEVED",
+                "Project category tree retrieved successfully.",
+                new ItemsResponse<>(query.listCategoryTree())
+        ));
+    }
+
     @GetMapping("/categories/{categoryId}/subcategories")
     public ResponseEntity<ApiResponse<ItemsResponse<CatalogBrowseQuery.SubCategory>>> listSubCategories(@PathVariable UUID categoryId) {
         return ResponseEntity.ok(ApiResponse.success("PROJECT_SUBCATEGORIES_RETRIEVED", "Project subcategories retrieved successfully.",
