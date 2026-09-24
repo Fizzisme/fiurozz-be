@@ -56,8 +56,15 @@ model User {
   id String @id @db.Uuid
   profile   UserProfile?
   settings  UserSetting?
+  stats     UserStats?
   links     SocialLink[]
   skills    UserSkill[]
+
+  // Directed follow graph: `following` = edges this user created,
+  // `followers` = edges pointing at this user. Two relations over the
+  // same table, so both need an explicit name.
+  following Follow[] @relation("Following")
+  followers Follow[] @relation("Followers")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -152,6 +159,52 @@ model Skill {
   users UserSkill[]
 
   @@map("skills")
+}
+
+// One row per directed edge: `follower` follows `followee`.
+// No accept step -- following is one-way, and "friendship" is derived
+// as a mutual pair of edges rather than stored. Private accounts
+// (UserSetting.isPrivate) are not honoured yet; that needs a status
+// column and is deliberately left for a later migration.
+model Follow {
+  followerId String @map("follower_id") @db.Uuid
+
+  followeeId String @map("followee_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  follower User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+
+  followee User @relation("Followers", fields: [followeeId], references: [id], onDelete: Cascade)
+
+  // PK doubles as the uniqueness guard (can't follow someone twice) and
+  // as the index for a single "does A follow B?" lookup.
+  @@id([followerId, followeeId])
+  // Both list directions are paginated newest-first by keyset, so each
+  // index carries createdAt to serve the ORDER BY from the index alone.
+  @@index([followeeId, createdAt])
+  @@index([followerId, createdAt])
+  @@map("follows")
+}
+
+// Follower/following counts, denormalized out of `follows` because
+// COUNT(*) over the edge table runs on every profile render.
+// Kept in its own table rather than on UserProfile so that a follow by
+// someone else doesn't lock the row the owner updates via PATCH /me.
+// Written in the same transaction as the edge; drift is possible if a
+// write is interrupted, so these are reconcilable from `follows` alone.
+model UserStats {
+  userId String @id @map("user_id") @db.Uuid
+
+  followersCount Int @default(0) @map("followers_count")
+
+  followingCount Int @default(0) @map("following_count")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_stats")
 }
 
 model UserSkill {

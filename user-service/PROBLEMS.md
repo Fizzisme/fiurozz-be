@@ -8,15 +8,22 @@ The only HTTP endpoint is `GET /me` (`src/user/user.controller.ts`). There is no
 
 **Impact:** not a bug, but likely the single biggest functional gap if the intent is a usable profile feature rather than just the event-consumption plumbing — worth flagging so it isn't mistaken for "done."
 
-## `auth_mode: optional` on `/api/users` doesn't match what this service's only endpoint needs
+## `auth_mode: optional` on `/api/users` mixes public and authenticated endpoints under one policy
 
-`api-gateway/configs/routes.yaml` registers the `/api/users` prefix with `auth_mode: optional`, meaning the gateway will proxy a request through **without** a valid token. But `GET /me` (this service's only endpoint) has no meaning without an authenticated identity — `user.service.ts#getMe` immediately throws `UnauthorizedException` if `X-User-Id` is missing, with a comment noting this "should be unreachable in practice" because the gateway's `AuthMode` is assumed to guarantee the header is present.
+`api-gateway/configs/routes.yaml` registers the `/api/users` prefix with `auth_mode: optional`, meaning the gateway will proxy a request through **without** a valid token. Endpoints under that prefix now want two different policies:
 
-That assumption doesn't hold today: with `auth_mode: optional`, an unauthenticated request to `/api/users/me` **is** reachable in practice, it just gets rejected one layer further in than intended (inside this service, via a thrown exception, rather than at the gateway with a clean 401).
+- **Public:** `GET /` (users list) and `GET /:identifier` (public profile) — the members directory is browsable by anonymous visitors, and each optionally personalizes `isFollowing` from `X-User-Id` when a token *is* present.
+- **Authenticated:** `GET /me`, `PATCH /me`, `POST|DELETE /:id/follow` — meaningless without an identity, and each rejects a missing one via the `@UserId()` decorator (`src/common/decorators/user-id.decorator.ts`), which throws `UnauthorizedException`.
 
-**Impact:** low right now (the net result is still a 401), but the moment a public/optional-auth endpoint is added to this service alongside `/me` (see the previous item — any new write endpoint will likely also require auth), the shared route-level `auth_mode` stops being able to express "some endpoints here are public, some aren't" — every endpoint under `/api/users` gets the same policy.
+`optional` is the only mode that lets the public endpoints work at all, so it is the correct setting today — but it is correct by luck of being the permissive option, not because the gateway can express this split. The authenticated endpoints get their 401 one layer further in than intended (inside this service, via a thrown exception, rather than at the gateway).
 
-**Fix:** change `/api/users` to `auth_mode: required` in `api-gateway/configs/routes.yaml` now, since every current endpoint needs it; if a public endpoint is added later, that's the point to introduce per-endpoint (not just per-route-prefix) auth policy in the gateway.
+> **Superseded 2026-09-24.** This entry previously recommended switching to `auth_mode: required`, on the premise that `GET /me` was the service's only endpoint. That premise no longer holds — `required` would now break anonymous browsing of the members directory. Do not apply that older advice.
+
+**Impact:** low. Authenticated endpoints still return 401, just from the service rather than the gateway. The real cost is that route-level `auth_mode` can't express "some endpoints here are public, some aren't", so per-endpoint auth is enforced by convention in application code instead of at the edge.
+
+**Fix:** introduce per-endpoint (not just per-route-prefix) auth policy in the gateway, then mark the `/me` and follow-mutation endpoints `required` while leaving the list/detail endpoints `optional`. Until then, keep `optional` and keep relying on `@UserId()` to reject anonymous callers on the endpoints that need an identity.
+
+One gateway-side caveat worth knowing if that work happens: `auth_mode: none` returns before `stripIdentityHeaders` (`api-gateway/internal/middleware/jwt.go`), so client-supplied `X-User-Id` would pass straight through to this service. Any future "truly public" mode here must use `optional`, not `none`. Also note the proxy sets identity headers unconditionally, so an anonymous request arrives with `X-User-Id` as an **empty string** rather than an absent header — see `OptionalUserId` in `src/common/decorators/user-id.decorator.ts`.
 
 ## Profile data copied from `auth-service` has no update path
 
