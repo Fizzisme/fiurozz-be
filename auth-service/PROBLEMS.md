@@ -46,6 +46,19 @@ gender: string;
 
 **Fix:** either implement the verification flow (send a signed link/code, add a `POST /verify-email` endpoint) or remove the field until it's actually wired up, so its presence doesn't imply a feature that isn't there.
 
+## `displayName` uniqueness has no collision handling — OAuth signup can 500 on a common real name
+
+`Account.displayName` is `@unique`, and both account-creation paths write to it with no `try/catch` around the constraint:
+
+- `oauth-account.service.ts#loginWithOauth` sets `displayName: profile.fullName` directly — the OAuth provider's real name, verbatim, not something the user chooses. Two people signing up via OAuth with the same real name (e.g. a common Vietnamese full name) will hit a Postgres unique-violation on the second signup.
+- `auth.service.ts#register` at least lets the user *choose* `displayName` themselves (`RegisterDto`), so a collision there is arguably closer to expected "username taken" territory — but it has the same missing `try/catch`, so even that case surfaces as a raw error rather than a clean 4xx.
+
+Neither call site catches Prisma's unique-violation error (`P2002`), so a collision on either path propagates as an unhandled exception — most likely a generic 500, not a message telling the user their name/`displayName` is taken.
+
+**Impact:** OAuth signup can fail for ordinary users with common real names, with a confusing error and no indication of why. This was found while confirming that `user-service` can safely rely on `displayName` being globally unique (see `user-service/prisma/schema.prisma` — `UserProfile.displayName` is now also `@unique`, added 2026-09-20) — that invariant holds today only because `Account.displayName` is enforced at the source, but collisions there aren't handled gracefully.
+
+**Fix:** catch `P2002` on `displayName` in both `auth.service.ts#register` and `oauth-account.service.ts#loginWithOauth`. For `register`, return a clear 409/400 ("display name already taken"). For OAuth (no form step to show a validation error to), either auto-append a suffix (`profile.fullName` + short random/numeric suffix) and retry the create, or add a "choose a display name" step to the OAuth handoff flow before the account is created.
+
 ## No automated tests
 
 `package.json` has `test`/`test:e2e` scripts configured (Jest), but there is no `test/` directory and zero `*.spec.ts` files anywhere in `src/`. The riskiest untested paths, given what's covered above, are token issuance/verification (`jwt-token.service.ts`), the register→outbox→relay pipeline (crossing a DB transaction and an external RabbitMQ publish), and the OAuth account-linking logic in `oauth-account.service.ts` (the email-collision handling there has subtle `null`-vs-`undefined` semantics worth locking down with a test, per its own inline comment).
