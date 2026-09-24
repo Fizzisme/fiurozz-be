@@ -16,10 +16,6 @@ public record CreateProjectRequest(
         @Size(max = 180, message = "title must not exceed 180 characters")
         String title,
 
-        @NotBlank(message = "slug is required")
-        @Size(max = 180, message = "slug must not exceed 180 characters")
-        String slug,
-
         @NotBlank(message = "shortDescription is required")
         @Size(max = 500, message = "shortDescription must not exceed 500 characters")
         String shortDescription,

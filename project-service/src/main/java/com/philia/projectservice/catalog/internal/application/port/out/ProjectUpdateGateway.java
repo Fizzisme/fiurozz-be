@@ -10,8 +10,6 @@ public interface ProjectUpdateGateway {
 
     Optional<ProjectState> findActiveState(UUID projectId);
 
-    boolean slugExistsForAnotherActiveProject(UUID ownerId, String slug, UUID projectId);
-
     boolean updateIfCurrent(UpdateData update);
 
     record ProjectState(

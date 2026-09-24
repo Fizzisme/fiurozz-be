@@ -30,11 +30,6 @@ public class JpaProjectUpdateGateway implements ProjectUpdateGateway {
     }
 
     @Override
-    public boolean slugExistsForAnotherActiveProject(UUID ownerId, String slug, UUID projectId) {
-        return projectRepository.existsByOwnerIdAndSlugAndDeletedAtIsNullAndIdNot(ownerId, slug, projectId);
-    }
-
-    @Override
     public boolean updateIfCurrent(UpdateData update) {
         // Advance row_version first with the ETag in the WHERE clause. This makes
         // the update conditional without Hibernate changing versions for tag rows.

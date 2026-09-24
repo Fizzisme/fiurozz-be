@@ -90,7 +90,6 @@ class CreateProjectHandlerTest {
         return new CreateProjectCommand(
                 SUB_CATEGORY_ID,
                 "Fiurozz Backend",
-                " Fiurozz Backend ",
                 "A project catalog backend",
                 "The complete project description",
                 "https://demo.example.com",

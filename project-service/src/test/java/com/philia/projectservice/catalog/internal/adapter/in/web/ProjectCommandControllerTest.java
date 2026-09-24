@@ -55,7 +55,6 @@ class ProjectCommandControllerTest {
         var response = controller.createProject(new CreateProjectRequest(
                 result.subCategory().id(),
                 result.title(),
-                result.slug(),
                 result.shortDescription(),
                 result.description(),
                 result.demoUrl(),

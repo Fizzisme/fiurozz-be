@@ -13,9 +13,6 @@ public record UpdateProjectRequest(
         @Size(max = 180, message = "title must not exceed 180 characters")
         String title,
 
-        @Size(max = 180, message = "slug must not exceed 180 characters")
-        String slug,
-
         @Size(max = 500, message = "shortDescription must not exceed 500 characters")
         String shortDescription,
 

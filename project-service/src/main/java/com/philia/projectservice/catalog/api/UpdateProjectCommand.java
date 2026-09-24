@@ -9,7 +9,6 @@ public record UpdateProjectCommand(
         long expectedVersion,
         UUID subCategoryId,
         String title,
-        String slug,
         String shortDescription,
         String description,
         String demoUrl,
@@ -17,7 +16,7 @@ public record UpdateProjectCommand(
         List<String> features
 ) {
     public boolean hasChanges() {
-        return subCategoryId != null || title != null || slug != null || shortDescription != null
+        return subCategoryId != null || title != null || shortDescription != null
                 || description != null || demoUrl != null || techStack != null || features != null;
     }
 }

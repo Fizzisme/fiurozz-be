@@ -6,14 +6,12 @@ import com.philia.projectservice.catalog.api.UpdateProjectUseCase;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectForbiddenException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectNotEditableException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectNotFoundException;
-import com.philia.projectservice.catalog.internal.application.exception.ProjectSlugAlreadyExistsException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectStaleVersionException;
 import com.philia.projectservice.catalog.internal.application.exception.SubCategoryUnavailableException;
 import com.philia.projectservice.catalog.internal.application.port.out.CatalogReferenceQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.CurrentActor;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectDetailQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectUpdateGateway;
-import com.philia.projectservice.catalog.internal.domain.ProjectSlug;
 import com.philia.projectservice.catalog.internal.domain.exception.InvalidProjectException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,16 +76,10 @@ public class UpdateProjectHandler implements UpdateProjectUseCase {
             catalogReferenceQuery.findActiveSubCategory(subCategoryId)
                     .orElseThrow(() -> new SubCategoryUnavailableException(subCategoryId));
         }
-        var slug = command.slug() == null ? current.slug() : ProjectSlug.from(command.slug()).value();
-        if (!slug.equals(current.slug()) && projectUpdateGateway.slugExistsForAnotherActiveProject(
-                actor.id(), slug, command.projectId())) {
-            throw new ProjectSlugAlreadyExistsException(slug);
-        }
-
         var update = new ProjectUpdateGateway.UpdateData(
                 command.projectId(), actor.id(), command.expectedVersion(), subCategoryId,
                 requiredText(command.title(), current.title(), 180, "Project title"),
-                slug,
+                current.slug(),
                 requiredText(command.shortDescription(), current.shortDescription(), 500, "Project short description"),
                 requiredText(command.description(), current.description(), 50_000, "Project description"),
                 optionalHttpsUrl(command.demoUrl(), current.demoUrl()),

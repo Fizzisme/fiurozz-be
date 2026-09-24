@@ -3,6 +3,7 @@ package com.philia.projectservice.catalog.internal.application;
 import com.philia.projectservice.ProjectServiceApplication;
 import com.philia.projectservice.catalog.api.CreateProjectCommand;
 import com.philia.projectservice.catalog.api.CreateProjectUseCase;
+import com.philia.projectservice.catalog.internal.application.port.out.CatalogBrowseQuery;
 import com.philia.projectservice.shared.security.GatewayHeaderAuthenticationFilter;
 import com.philia.projectservice.shared.security.GatewayActorPrincipal;
 import jakarta.persistence.EntityManager;
@@ -45,6 +46,9 @@ class CreateProjectPostgresIntegrationTest {
     private CreateProjectUseCase createProjectUseCase;
 
     @Autowired
+    private CatalogBrowseQuery catalogBrowseQuery;
+
+    @Autowired
     private JdbcClient jdbcClient;
 
     @Autowired
@@ -73,7 +77,6 @@ class CreateProjectPostgresIntegrationTest {
 
         var result = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId,
-                "Fiurozz Backend",
                 "Fiurozz Backend " + suffix,
                 "A project catalog backend",
                 "The complete project description",
@@ -113,6 +116,25 @@ class CreateProjectPostgresIntegrationTest {
     }
 
     @Test
+    void loadsCategoryTreeFromPostgres() {
+        var categoryId = UUID.randomUUID();
+        var subCategoryId = UUID.randomUUID();
+        var tagId = UUID.randomUUID();
+        var suffix = UUID.randomUUID().toString();
+        insertReferences(categoryId, subCategoryId, tagId, suffix);
+
+        var tree = catalogBrowseQuery.listCategoryTree();
+
+        assertThat(tree)
+                .filteredOn(category -> category.id().equals(categoryId))
+                .singleElement()
+                .satisfies(category -> assertThat(category.subCategories()).singleElement().satisfies(subCategory -> {
+                    assertThat(subCategory.id()).isEqualTo(subCategoryId);
+                    assertThat(subCategory.slug()).isEqualTo("subcategory-" + suffix);
+                }));
+    }
+
+    @Test
     void createsProjectThroughHttpApi() throws Exception {
         var ownerId = UUID.randomUUID();
         var categoryId = UUID.randomUUID();
@@ -124,8 +146,7 @@ class CreateProjectPostgresIntegrationTest {
         var requestBody = """
                 {
                   "subCategoryId": "%s",
-                  "title": "Fiurozz Backend",
-                  "slug": "Fiurozz Backend %s",
+                  "title": "Fiurozz Backend %s",
                   "shortDescription": "A project catalog backend",
                   "description": "The complete project description",
                   "demoUrl": "https://demo.example.com",
@@ -180,7 +201,6 @@ class CreateProjectPostgresIntegrationTest {
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId,
-                "Fiurozz Backend",
                 "Fiurozz Backend " + suffix,
                 "A project catalog backend",
                 "The complete project description",
@@ -230,7 +250,7 @@ class CreateProjectPostgresIntegrationTest {
         authenticate(ownerId);
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
-                subCategoryId, "Fiurozz Backend", "Fiurozz Backend " + suffix,
+                subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com",
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
@@ -270,7 +290,7 @@ class CreateProjectPostgresIntegrationTest {
         authenticate(ownerId);
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
-                subCategoryId, "Fiurozz Backend", "Fiurozz Backend " + suffix,
+                subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com",
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
@@ -306,7 +326,7 @@ class CreateProjectPostgresIntegrationTest {
         authenticate(ownerId);
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
-                subCategoryId, "Fiurozz Backend", "Fiurozz Backend " + suffix,
+                subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com",
                 "PUBLIC", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
@@ -357,7 +377,9 @@ class CreateProjectPostgresIntegrationTest {
         mockMvc().perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.info.title").value("Fiurozz Project Service API"))
-                .andExpect(jsonPath("$.paths.length()").value(12))
+                .andExpect(jsonPath("$.paths.length()").value(13))
+                .andExpect(jsonPath("$['paths']['/categories/tree']['get']['operationId']")
+                        .value("listCategoryTree"))
                 .andExpect(jsonPath("$['paths']['/']['post']['operationId']")
                         .value("createProject"))
                 .andExpect(jsonPath("$['paths']['/']['post']['security'][0]['bearerAuth']")
@@ -372,6 +394,10 @@ class CreateProjectPostgresIntegrationTest {
                         .value("publishProject"))
                 .andExpect(jsonPath("$['paths']['/']['post']['responses']['201']")
                         .exists())
+                .andExpect(jsonPath("$['components']['schemas']['CreateProjectRequest']['properties']['slug']")
+                        .doesNotExist())
+                .andExpect(jsonPath("$['components']['schemas']['UpdateProjectRequest']['properties']['slug']")
+                        .doesNotExist())
                 .andExpect(jsonPath("$['components']['securitySchemes']['bearerAuth']['scheme']")
                         .value("bearer"));
     }

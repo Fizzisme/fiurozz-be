@@ -6,7 +6,6 @@ import java.util.UUID;
 public record CreateProjectCommand(
         UUID subCategoryId,
         String title,
-        String slug,
         String shortDescription,
         String description,
         String demoUrl,

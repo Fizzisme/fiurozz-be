@@ -4,8 +4,11 @@ import com.philia.projectservice.catalog.internal.application.port.out.CatalogBr
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Repository
 public class JpaCatalogBrowseQuery implements CatalogBrowseQuery {
@@ -27,6 +30,29 @@ public class JpaCatalogBrowseQuery implements CatalogBrowseQuery {
     @Override public List<SubCategory> listSubCategories(UUID categoryId) {
         return subCategories.findByCategory_IdAndActiveTrueAndDeletedAtIsNullOrderBySortOrderAscTitleAsc(categoryId).stream()
                 .map(value -> new SubCategory(value.getId(), categoryId, value.getKey(), value.getSlug(), value.getTitle(), value.getSortOrder())).toList();
+    }
+    @Override public List<CategoryTree> listCategoryTree() {
+        var activeCategories = categories.findByActiveTrueAndDeletedAtIsNullOrderBySortOrderAscTitleAsc();
+        if (activeCategories.isEmpty()) {
+            return List.of();
+        }
+
+        var categoryIds = activeCategories.stream().map(ProjectCategoryJpaEntity::getId).toList();
+        Map<UUID, List<TreeSubCategory>> childrenByCategory = subCategories.findActiveByCategoryIds(categoryIds).stream()
+                .collect(Collectors.groupingBy(
+                        value -> value.getCategory().getId(),
+                        LinkedHashMap::new,
+                        Collectors.mapping(value -> new TreeSubCategory(
+                                value.getId(), value.getKey(), value.getSlug(), value.getTitle(), value.getSortOrder()
+                        ), Collectors.toList())
+                ));
+
+        return activeCategories.stream()
+                .map(category -> new CategoryTree(
+                        category.getId(), category.getKey(), category.getSlug(), category.getTitle(), category.getIcon(),
+                        category.getSortOrder(), childrenByCategory.getOrDefault(category.getId(), List.of())
+                ))
+                .toList();
     }
     @Override public TagPage searchTags(String query, int page, int size) {
         var pageable = PageRequest.of(page, size);
