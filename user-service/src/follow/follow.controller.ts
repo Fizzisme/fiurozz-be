@@ -1,6 +1,6 @@
 import {Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query} from '@nestjs/common';
 import {FollowService} from "./follow.service.js";
-import {UserId} from "../common/decorators/user-id.decorator.js";
+import {OptionalUserId, UserId} from "../common/decorators/user-id.decorator.js";
 
 // Routes here are all two-segment (`:id/follow`, `:id/followers`, ...), so
 // they never collide with UserController's single-segment `GET :identifier`
@@ -25,17 +25,19 @@ export class FollowController {
     getFollowers(
         @Param('id') id: string,
         @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+        @OptionalUserId() viewerId?: string,
         @Query('cursor') cursor?: string,
     ) {
-        return this.followService.getFollowers(id, { limit, cursor });
+        return this.followService.getFollowers(id, { limit, cursor }, viewerId);
     }
 
     @Get(':id/following')
     getFollowing(
         @Param('id') id: string,
         @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+        @OptionalUserId() viewerId?: string,
         @Query('cursor') cursor?: string,
     ) {
-        return this.followService.getFollowing(id, { limit, cursor });
+        return this.followService.getFollowing(id, { limit, cursor }, viewerId);
     }
 }

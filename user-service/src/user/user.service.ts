@@ -3,10 +3,9 @@ import {PrismaService} from "../prisma/prisma.service.js";
 import {Prisma} from "../generated/prisma/client.js";
 import {Occupation} from "../generated/prisma/enums.js";
 import type {UpdateProfileDto} from "./dto/update-profile.dto.js";
-
-const MAX_LIMIT = 100;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {MAX_LIMIT} from "../common/constants/pagination.js";
+import {UUID_RE} from "../common/constants/uuid.js";
+import {FollowService} from "../follow/follow.service.js";
 
 interface GetUsersQuery {
     limit: number;
@@ -16,21 +15,26 @@ interface GetUsersQuery {
     sort?: string;
 }
 
-type SortField = 'createdAt' | 'displayName';
+type SortField = 'createdAt' | 'displayName' | 'followersCount';
 
 interface SortSpec {
     field: SortField;
     direction: 'asc' | 'desc';
 }
 
+// stats is loaded for the followers_desc cursor *and* for the counts
+// returned in every public profile.
 type UserWithPublicProfile = Prisma.UserGetPayload<{
-    include: { profile: true; settings: true; skills: { include: { skill: true } } };
+    include: { profile: true; settings: true; stats: true; skills: { include: { skill: true } } };
 }>;
 
 @Injectable()
 export class UserService {
 
-    constructor(private readonly prisma: PrismaService) {
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly followService: FollowService,
+    ) {
     }
 
     // userId comes from the @UserId() decorator -- see its header-trust
@@ -41,6 +45,7 @@ export class UserService {
             include: {
                 profile: true,
                 settings: true,
+                stats: true,
                 links: {
                     orderBy: { order: 'asc' },
                 },
@@ -71,6 +76,8 @@ export class UserService {
                 timezone: user.profile.timezone,
                 settings: user.settings,
                 links: user.links,
+                followersCount: user.stats?.followersCount ?? 0,
+                followingCount: user.stats?.followingCount ?? 0,
                 createdAt: user.createdAt
             },
 
@@ -143,7 +150,9 @@ export class UserService {
     }
 
 
-    async getUsers(query: GetUsersQuery){
+    // viewerId is optional -- this route serves anonymous visitors too, and is
+    // only used to stamp isFollowing onto each card.
+    async getUsers(query: GetUsersQuery, viewerId?: string){
         const take = Math.min(Math.max(query.limit, 1), MAX_LIMIT);
         const sortSpec = this.parseSort(query.sort);
 
@@ -166,6 +175,7 @@ export class UserService {
             include: {
                 profile: true,
                 settings: true,
+                stats: true,
                 skills: { include: { skill: true } },
             },
         });
@@ -173,9 +183,15 @@ export class UserService {
         const hasMore = users.length > take;
         const items = hasMore ? users.slice(0, take) : users;
 
+        // One lookup for the whole page -- built from `items` so the extra
+        // lookahead row isn't queried for.
+        const following = await this.followService.loadFollowingSet(viewerId, items.map((user) => user.id));
+
         return {
             data: {
-                items: items.filter((user) => user.profile).map((user) => this.toPublicProfile(user)),
+                items: items
+                    .filter((user) => user.profile)
+                    .map((user) => this.toPublicProfile(user, following.has(user.id))),
                 nextCursor: hasMore ? this.encodeCursor(sortSpec, items[items.length - 1]) : null,
                 hasMore: !!hasMore,
                 total: items.length,
@@ -205,16 +221,24 @@ export class UserService {
                 return { field: 'displayName', direction: 'asc' };
             case 'name_desc':
                 return { field: 'displayName', direction: 'desc' };
+            case 'followers_desc':
+                return { field: 'followersCount', direction: 'desc' };
             default:
                 throw new BadRequestException(`Invalid sort value: ${sort}`);
         }
     }
 
     private buildOrderBy(sortSpec: SortSpec): Prisma.UserOrderByWithRelationInput[] {
+        // followersCount sorts through the optional `stats` relation. That's
+        // only safe because every user gets a UserStats row at creation (see
+        // ConsumerService#handleAccountCreated) -- a user without one would
+        // sort as NULL (first under DESC) and never match the cursor filter.
         const primary: Prisma.UserOrderByWithRelationInput =
             sortSpec.field === 'createdAt'
                 ? { createdAt: sortSpec.direction }
-                : { profile: { displayName: sortSpec.direction } };
+                : sortSpec.field === 'followersCount'
+                    ? { stats: { followersCount: sortSpec.direction } }
+                    : { profile: { displayName: sortSpec.direction } };
 
         // id as tie-breaker (same direction) so ties on the sort field
         // still produce a stable, resumable keyset order.
@@ -225,7 +249,12 @@ export class UserService {
     // Keyset pagination: "give me rows strictly after this (v, id) pair"
     // in the same order as buildOrderBy, so it composes with any sort.
     private encodeCursor(sortSpec: SortSpec, user: UserWithPublicProfile): string {
-        const value = sortSpec.field === 'createdAt' ? user.createdAt.toISOString() : user.profile!.displayName;
+        const value =
+            sortSpec.field === 'createdAt'
+                ? user.createdAt.toISOString()
+                : sortSpec.field === 'followersCount'
+                    ? String(user.stats?.followersCount ?? 0)
+                    : user.profile!.displayName;
         return Buffer.from(JSON.stringify({ v: value, id: user.id })).toString('base64url');
     }
 
@@ -253,6 +282,17 @@ export class UserService {
             };
         }
 
+        if (sortSpec.field === 'followersCount') {
+            const value = Number(v);
+            if (!Number.isInteger(value)) throw new BadRequestException('Invalid cursor.');
+            return {
+                OR: [
+                    { stats: { followersCount: { [op]: value } } },
+                    { stats: { followersCount: value }, id: { [op]: id } },
+                ],
+            };
+        }
+
         return {
             OR: [
                 { profile: { displayName: { [op]: v } } },
@@ -265,7 +305,7 @@ export class UserService {
     // (displayName is unique in this schema *and* in auth-service's Account,
     // where it originates; see PR discussion), so either one identifies
     // exactly one user.
-    async getUser(identifier: string){
+    async getUser(identifier: string, viewerId?: string){
         const isUuid = UUID_RE.test(identifier);
 
         const user = await this.prisma.user.findFirst({
@@ -276,6 +316,7 @@ export class UserService {
             include: {
                 profile: true,
                 settings: true,
+                stats: true,
                 skills: { include: { skill: true } },
             },
         });
@@ -284,13 +325,17 @@ export class UserService {
             throw new NotFoundException('User not found.');
         }
 
-        return { data: this.toPublicProfile(user) };
+        // Same batch helper as the list, just with a single id -- one code
+        // path for "does the viewer follow this user".
+        const following = await this.followService.loadFollowingSet(viewerId, [user.id]);
+
+        return { data: this.toPublicProfile(user, following.has(user.id)) };
     }
 
     // Excludes fields that should stay private unless the owner's
     // UserSetting explicitly opts in (showEmail / showBirthday) --
     // unlike getMe, these are endpoints for viewing *other* users.
-    private toPublicProfile(user: UserWithPublicProfile) {
+    private toPublicProfile(user: UserWithPublicProfile, isFollowing: boolean) {
         const profile = user.profile!;
         const settings = user.settings;
 
@@ -307,6 +352,9 @@ export class UserService {
             website: profile.website,
             gender: profile.gender,
             skills: user.skills.map((userSkill) => userSkill.skill.name),
+            followersCount: user.stats?.followersCount ?? 0,
+            followingCount: user.stats?.followingCount ?? 0,
+            isFollowing,
             ...(settings?.showEmail && { email: profile.email }),
             ...(settings?.showBirthday && { birthday: profile.birthday }),
             createdAt: user.createdAt,

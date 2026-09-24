@@ -73,6 +73,9 @@ export class ConsumerService {
                         },
                     },
                     settings: { create: {} },
+                    // Zeroed counters up front, so UserService's
+                    // followers_desc sort never meets a user without stats.
+                    stats: { create: {} },
                 },
             });
 
