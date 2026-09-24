@@ -14,6 +14,11 @@ import {HttpExceptionFilter} from "./common/filters/http-exception.filter.js";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Without this, Node kills the process on SIGTERM/SIGINT immediately --
+  // in-flight requests get cut and OnModuleDestroy hooks (Prisma
+  // $disconnect) never run.
+  app.enableShutdownHooks();
+
     // Global validation pipe applied to every incoming request body/
     // query/params (validated against DTO class-validator decorators):
     // - whitelist: strips properties not defined in the DTO
