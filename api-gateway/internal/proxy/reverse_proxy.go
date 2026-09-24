@@ -17,6 +17,23 @@ import (
     "go.opentelemetry.io/otel/propagation"
 )
 
+// forwardIdentityHeader copies a gateway-verified identity header from the
+// inbound request to the outbound one, but only when it actually has a
+// value. JWTAuth (internal/middleware/jwt.go) deletes these headers for
+// anonymous/unauthenticated requests, and Header.Get on a deleted header
+// returns "" rather than signaling absence -- forwarding that blindly with
+// Set would make the header present-but-empty on the outbound request,
+// which is a different, easy-to-miss signal for a backend to have to
+// special-case versus the header being absent entirely.
+func forwardIdentityHeader(pr *httputil.ProxyRequest, key string) {
+	value := pr.In.Header.Get(key)
+	if value == "" {
+		pr.Out.Header.Del(key)
+		return
+	}
+	pr.Out.Header.Set(key, value)
+}
+
 // ReverseProxy wraps httputil.ReverseProxy for a single backend
 // service, stripping a route prefix before forwarding requests and
 // enforcing a per-request timeout on top of circuit breaking/retry.
@@ -89,20 +106,16 @@ func New(target string,
         // (JWTAuth, RequestID) from the inbound request to the outbound
         // one, since pr.Out starts as a fresh clone and does not carry
         // these over automatically.
-        pr.Out.Header.Set(
-            constants.HeaderUserID,
-            pr.In.Header.Get(constants.HeaderUserID),
-        )
-
-        pr.Out.Header.Set(
-            constants.HeaderUserEmail,
-            pr.In.Header.Get(constants.HeaderUserEmail),
-        )
-
-        pr.Out.Header.Set(
-            constants.HeaderUserRoles,
-            pr.In.Header.Get(constants.HeaderUserRoles),
-        )
+        //
+        // Identity headers use forwardIdentityHeader, not Set, because
+        // JWTAuth strips them (Header.Del) for unauthenticated/optional-auth
+        // requests -- Header.Get after a Del returns "", and Set would then
+        // hand the backend a header that IS present with an empty value.
+        // That is a different signal than "no identity", and every backend
+        // service would otherwise have to know to treat "" as absent.
+        forwardIdentityHeader(pr, constants.HeaderUserID)
+        forwardIdentityHeader(pr, constants.HeaderUserEmail)
+        forwardIdentityHeader(pr, constants.HeaderUserRoles)
 
         pr.Out.Header.Set(
             constants.HeaderRequestID,
