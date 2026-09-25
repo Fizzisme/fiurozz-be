@@ -12,6 +12,7 @@ public final class Project {
     private static final int MAX_TITLE_LENGTH = 180;
     private static final int MAX_SHORT_DESCRIPTION_LENGTH = 500;
     private static final int MAX_DEMO_URL_LENGTH = 500;
+    private static final int MAX_REPOSITORY_URL_LENGTH = 500;
 
     private final UUID id;
     private final UUID ownerId;
@@ -24,6 +25,7 @@ public final class Project {
     private final String description;
     private final String thumbnailUrl;
     private final String demoUrl;
+    private final String repositoryUrl;
     private final List<String> techStack;
     private final List<String> features;
     private final ProjectStatus status;
@@ -50,6 +52,7 @@ public final class Project {
             String description,
             String thumbnailUrl,
             String demoUrl,
+            String repositoryUrl,
             List<String> techStack,
             List<String> features,
             ProjectStatus status,
@@ -79,6 +82,7 @@ public final class Project {
         this.description = requiredText(description, Integer.MAX_VALUE, "Project description");
         this.thumbnailUrl = optionalText(thumbnailUrl, 500, "Project thumbnail URL");
         this.demoUrl = optionalText(demoUrl, MAX_DEMO_URL_LENGTH, "Project demo URL");
+        this.repositoryUrl = optionalText(repositoryUrl, MAX_REPOSITORY_URL_LENGTH, "Project repository URL");
         this.techStack = List.copyOf(techStack == null ? List.of() : techStack);
         this.features = List.copyOf(features == null ? List.of() : features);
         this.status = Objects.requireNonNull(status, "Project status is required");
@@ -105,6 +109,7 @@ public final class Project {
             String shortDescription,
             String description,
             String demoUrl,
+            String repositoryUrl,
             List<String> techStack,
             List<String> features,
             ProjectVisibility visibility,
@@ -122,6 +127,7 @@ public final class Project {
                 description,
                 null,
                 demoUrl,
+                repositoryUrl,
                 techStack,
                 features,
                 ProjectStatus.DRAFT,
@@ -205,6 +211,10 @@ public final class Project {
 
     public String demoUrl() {
         return demoUrl;
+    }
+
+    public String repositoryUrl() {
+        return repositoryUrl;
     }
 
     public List<String> techStack() {

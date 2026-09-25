@@ -197,6 +197,7 @@ that the Project exists.
   "shortDescription": "A platform for publishing software projects.",
   "description": "The complete project description.",
   "demoUrl": "https://demo.example.com",
+  "githubUrl": "https://github.com/fizzisme/fiurozz-be",
   "visibility": "PRIVATE",
   "techStack": [
     "java",
@@ -221,7 +222,8 @@ Field validation:
 | `title` | Yes | 180 characters | Trimmed and nonblank; the server derives the project slug from this value. |
 | `shortDescription` | Yes | 500 characters | Trimmed and nonblank. |
 | `description` | Yes | PostgreSQL `TEXT` | Nonblank; apply a sensible application maximum. |
-| `demoUrl` | No | 500 characters | Valid HTTPS URL when present. |
+| `demoUrl` | No | 500 characters | Valid HTTP or HTTPS URL when present. |
+| `githubUrl` | No | 500 characters | `https://github.com/...` URL when present. Stored in `projects.repository_url` as a manual link until the `source` module (GitHub App) is implemented. |
 | `visibility` | No | Enum | Defaults to `PRIVATE`. |
 | `techStack` | No | JSON array | Defaults to `[]`; unique normalized strings. |
 | `features` | No | JSON array | Defaults to `[]`; nonblank strings. |
@@ -246,6 +248,7 @@ Every field is optional, but at least one field must be present:
   "shortDescription": "An updated short description.",
   "description": "An updated complete description.",
   "demoUrl": "https://new-demo.example.com",
+  "githubUrl": "https://github.com/fizzisme/fiurozz-be",
   "techStack": [
     "java",
     "spring-boot",
@@ -305,6 +308,7 @@ Lifecycle, visibility, and tag changes use dedicated commands.
   "description": "The complete project description.",
   "thumbnailUrl": null,
   "demoUrl": "https://demo.example.com",
+  "githubUrl": "https://github.com/fizzisme/fiurozz-be",
   "techStack": [
     "java",
     "spring-boot",
@@ -689,7 +693,8 @@ Access rules:
 
 Success: `200 OK` with the public Project detail representation. Image media
 are sorted by `sort_order`, and `githubUrl` identifies the active primary
-repository when one is connected.
+repository when one is connected, falling back to the manual
+`repository_url` otherwise.
 
 Errors: `400`, `404`.
 

@@ -25,7 +25,7 @@ public class JpaProjectUpdateGateway implements ProjectUpdateGateway {
         return projectRepository.findByIdAndDeletedAtIsNull(projectId).map(project -> new ProjectState(
                 project.getOwnerId(), project.getStatus(), project.getVersion(), project.getSubCategory().getId(),
                 project.getTitle(), project.getSlug(), project.getShortDescription(), project.getDescription(),
-                project.getDemoUrl(), project.getTechStack(), project.getFeatures()
+                project.getDemoUrl(), project.getRepositoryUrl(), project.getTechStack(), project.getFeatures()
         ));
     }
 
@@ -44,7 +44,7 @@ public class JpaProjectUpdateGateway implements ProjectUpdateGateway {
         project.updateOwnerFields(
                 entityManager.getReference(ProjectSubCategoryJpaEntity.class, update.subCategoryId()),
                 update.title(), update.slug(), update.shortDescription(), update.description(), update.demoUrl(),
-                update.techStack(), update.features(), update.updatedAt()
+                update.repositoryUrl(), update.techStack(), update.features(), update.updatedAt()
         );
         projectRepository.saveAndFlush(project);
         return true;

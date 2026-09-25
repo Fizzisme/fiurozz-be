@@ -22,7 +22,8 @@ public interface ProjectPublicationGateway {
             String slug,
             String shortDescription,
             String description,
-            String demoUrl
+            String demoUrl,
+            String repositoryUrl
     ) {
     }
 }

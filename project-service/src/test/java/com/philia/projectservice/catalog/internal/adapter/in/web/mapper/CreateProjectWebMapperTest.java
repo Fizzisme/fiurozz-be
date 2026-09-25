@@ -23,6 +23,7 @@ class CreateProjectWebMapperTest {
                 "Short description",
                 "Full description",
                 "https://demo.example.com",
+                "https://github.com/fizzisme/fiurozz-be",
                 "PRIVATE",
                 List.of("java"),
                 List.of("Project catalog"),
@@ -33,6 +34,7 @@ class CreateProjectWebMapperTest {
 
         assertThat(command.subCategoryId()).isEqualTo(subCategoryId);
         assertThat(command.title()).isEqualTo("Fiurozz Backend");
+        assertThat(command.githubUrl()).isEqualTo("https://github.com/fizzisme/fiurozz-be");
         assertThat(command.tagIds()).containsExactly(tagId);
     }
 }

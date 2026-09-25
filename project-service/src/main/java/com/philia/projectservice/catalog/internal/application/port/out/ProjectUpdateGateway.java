@@ -22,6 +22,7 @@ public interface ProjectUpdateGateway {
             String shortDescription,
             String description,
             String demoUrl,
+            String repositoryUrl,
             List<String> techStack,
             List<String> features
     ) {
@@ -37,6 +38,7 @@ public interface ProjectUpdateGateway {
             String shortDescription,
             String description,
             String demoUrl,
+            String repositoryUrl,
             List<String> techStack,
             List<String> features,
             Instant updatedAt

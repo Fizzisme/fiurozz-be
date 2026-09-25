@@ -67,7 +67,7 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
                 project.getThumbnailUrl(),
                 mediaRepository.findImageUrlsByProjectId(project.getId()),
                 project.getDemoUrl(),
-                repositoryLinkRepository.findPrimaryRepositoryUrl(project.getId()).orElse(null),
+                repositoryLinkRepository.findPrimaryRepositoryUrl(project.getId()).orElse(project.getRepositoryUrl()),
                 project.getTechStack(),
                 project.getFeatures(),
                 tags,
