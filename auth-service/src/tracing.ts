@@ -5,11 +5,9 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 
-
 // diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
 
 const sdk = new NodeSDK({
-
     resource: resourceFromAttributes({
         [ATTR_SERVICE_NAME]: process.env.APP_NAME ?? 'AUTH-SERVICE',
         [ATTR_SERVICE_VERSION]: process.env.APP_VERSION ?? '1.0.0',
@@ -31,8 +29,7 @@ const sdk = new NodeSDK({
 sdk.start();
 
 process.on('SIGTERM', () => {
-    sdk
-        .shutdown()
+    sdk.shutdown()
         .then(() => console.log('Tracing terminated'))
         .catch((err) => console.error('Error terminating tracing', err))
         .finally(() => process.exit(0));

@@ -1,12 +1,5 @@
-import {
-    ArgumentsHost,
-    Catch,
-    ExceptionFilter,
-    HttpException,
-    HttpStatus,
-} from "@nestjs/common";
-import { Request, Response } from "express";
-
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
+import { Request, Response } from 'express';
 
 // Catches every unhandled exception (both NestJS HttpException and
 // raw JS errors) and normalizes them into the same response shape
@@ -14,14 +7,8 @@ import { Request, Response } from "express";
 // always get { success, timestamp, message, data } regardless of
 // outcome.
 @Catch()
-export class HttpExceptionFilter
-    implements ExceptionFilter
-{
-    catch(
-        exception: unknown,
-        host: ArgumentsHost,
-    ) {
-
+export class HttpExceptionFilter implements ExceptionFilter {
+    catch(exception: unknown, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
 
         const response = ctx.getResponse<Response>();
@@ -32,25 +19,18 @@ export class HttpExceptionFilter
         // so internal error details never leak to the client.
         let status = HttpStatus.INTERNAL_SERVER_ERROR;
 
-        let message = "Internal server error.";
+        let message = 'Internal server error.';
 
         if (exception instanceof HttpException) {
-
             status = exception.getStatus();
 
             const error = exception.getResponse();
 
             // e.g. throw new UnauthorizedException('Invalid email or password.')
             // — getResponse() returns the string directly.
-            if (typeof error === "string") {
+            if (typeof error === 'string') {
                 message = error;
-            }
-
-            else if (
-                typeof error === "object" &&
-                error !== null
-            ) {
-
+            } else if (typeof error === 'object' && error !== null) {
                 const body = error as Record<string, unknown>;
 
                 // ValidationPipe errors: message is an array of
@@ -58,9 +38,7 @@ export class HttpExceptionFilter
                 // the first is surfaced here — the rest are dropped.
                 if (Array.isArray(body.message)) {
                     message = body.message[0];
-                }
-
-                else if (typeof body.message === "string") {
+                } else if (typeof body.message === 'string') {
                     message = body.message;
                 }
             }

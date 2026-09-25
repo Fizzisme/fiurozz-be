@@ -1,5 +1,4 @@
-import {IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsString, MaxLength, MinLength} from 'class-validator';
-
+import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterDto {
     @IsEmail()
@@ -24,7 +23,7 @@ export class RegisterDto {
     @IsString()
     country: string;
 
-    @IsEnum(['MALE', 'FEMALE','UNKNOWN'])
+    @IsEnum(['MALE', 'FEMALE', 'UNKNOWN'])
     gender: string;
 
     @IsNotEmpty()

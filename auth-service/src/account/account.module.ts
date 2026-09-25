@@ -1,5 +1,5 @@
-import {Module} from "@nestjs/common";
-import {AccountService} from "./account.service.js";
+import { Module } from '@nestjs/common';
+import { AccountService } from './account.service.js';
 
 @Module({
     providers: [AccountService],
