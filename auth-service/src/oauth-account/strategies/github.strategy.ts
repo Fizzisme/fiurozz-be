@@ -18,14 +18,17 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
         let email = profile.emails?.[0]?.value;
 
         if (!email) {
-            const { data } = await axios.get('https://api.github.com/user/emails', {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'User-Agent': 'auth-service',
+            const { data } = await axios.get<{ email: string; primary: boolean; verified: boolean }[]>(
+                'https://api.github.com/user/emails',
+                {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'User-Agent': 'auth-service',
+                    },
                 },
-            });
+            );
 
-            const primary = data.find((e: any) => e.primary && e.verified);
+            const primary = data.find((e) => e.primary && e.verified);
 
             email = primary?.email;
         }

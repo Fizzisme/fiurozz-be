@@ -58,7 +58,7 @@ export class OutboxRelayService {
                         // inspection, and send an alert (Slack/email), same
                         // as the TODO in ConsumerService.handleFailedAccountCreated.
                     } else {
-                        this.logger.error(`Failed to publish event ${event.id}: ${err.message}`);
+                        this.logger.error(`Failed to publish event ${event.id}: ${(err as Error).message}`);
                     }
                 }
             }

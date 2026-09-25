@@ -89,7 +89,7 @@ export class AuthService {
     }
 
     async refresh(req: Request, res: Response) {
-        const refreshToken = req.cookies.refreshToken;
+        const refreshToken = req.cookies.refreshToken as string | undefined;
 
         if (!refreshToken) {
             throw new UnauthorizedException();
@@ -203,7 +203,7 @@ export class AuthService {
     }
 
     async logout(req: Request, res: Response) {
-        const refreshToken = req.cookies.refreshToken;
+        const refreshToken = req.cookies.refreshToken as string | undefined;
 
         if (!refreshToken) {
             return {

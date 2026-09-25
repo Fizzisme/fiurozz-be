@@ -73,7 +73,7 @@ export class TokenService {
 
     async verifyOAuthHandoffCode(code: string) {
         try {
-            const payload = await this.jwtService.verifyAsync(code, {
+            const payload = await this.jwtService.verifyAsync<{ accountId: string; deviceInfo?: DeviceInfo }>(code, {
                 secret: process.env.OAUTH_HANDOFF_SECRET ?? 'OAUTH_HANDOFF_SECRET',
             });
             return {

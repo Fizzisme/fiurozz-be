@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 
 // Catches every unhandled exception (both NestJS HttpException and
 // raw JS errors) and normalizes them into the same response shape
@@ -12,7 +12,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const ctx = host.switchToHttp();
 
         const response = ctx.getResponse<Response>();
-        const request = ctx.getRequest<Request>();
 
         // Default to 500 + generic message for anything that isn't a
         // recognized HttpException (e.g. a raw thrown Error, a bug),
@@ -37,7 +36,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 // validation failures (one per invalid field). Only
                 // the first is surfaced here — the rest are dropped.
                 if (Array.isArray(body.message)) {
-                    message = body.message[0];
+                    message = body.message[0] as string;
                 } else if (typeof body.message === 'string') {
                     message = body.message;
                 }

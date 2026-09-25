@@ -2,6 +2,13 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { uuidv7 } from 'uuidv7';
 
+export interface RefreshTokenPayload {
+    sub: string;
+    email: string | null;
+    roles: string[];
+    jti: string;
+}
+
 @Injectable()
 export class JwtTokenService {
     constructor(private readonly jwtService: JwtService) {}
@@ -71,7 +78,7 @@ export class JwtTokenService {
     // revocation status (see RefreshTokenService for that).
     async verifyRefreshToken(refreshToken: string) {
         try {
-            return await this.jwtService.verifyAsync(refreshToken, {
+            return await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken, {
                 secret: process.env.JWT_REFRESH_SECRET,
             });
         } catch {
