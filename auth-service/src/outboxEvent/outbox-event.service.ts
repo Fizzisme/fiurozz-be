@@ -1,6 +1,7 @@
-import {Injectable} from "@nestjs/common";
-import {PrismaService} from "../prisma/prisma.service.js";
-import {uuidv7} from "uuidv7";
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { uuidv7 } from 'uuidv7';
+import { Prisma } from '../generated/prisma/client.js';
 
 // Implements the write side of the Outbox pattern: events are written
 // to this table within the SAME database transaction as the business
@@ -9,20 +10,13 @@ import {uuidv7} from "uuidv7";
 // OutboxRelayService is responsible for actually publishing these
 // rows to RabbitMQ afterward.
 @Injectable()
-export class OutboxEventService{
-    constructor(
-        private readonly prisma: PrismaService,
-    ) {}
+export class OutboxEventService {
+    constructor(private readonly prisma: PrismaService) {}
 
     // Returns an unexecuted Prisma query (not awaited here) so it can
     // be composed into a $transaction([...]) array by the caller,
     // rather than running as its own independent transaction.
-    create(
-        accountId: string,
-        eventType: string,
-        payload: any,
-    ){
-
+    create(accountId: string, eventType: string, payload: Prisma.InputJsonValue) {
         const outboxEventId = uuidv7();
 
         return this.prisma.outboxEvent.create({
@@ -30,9 +24,9 @@ export class OutboxEventService{
                 id: outboxEventId,
                 aggregateId: accountId,
                 eventType,
-                payload
-            }
-        })
+                payload,
+            },
+        });
     }
 
     // Fetches the next batch of publishable events: still pending AND
@@ -49,6 +43,6 @@ export class OutboxEventService{
             },
             orderBy: { createdAt: 'asc' },
             take: 50,
-        })
+        });
     }
 }

@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
-import {OutboxEventService} from "./outbox-event.service.js";
+import { OutboxEventService } from './outbox-event.service.js';
 
-const MAX_ATTEMPTS = 3
+const MAX_ATTEMPTS = 3;
 
 // Implements the relay (publish) side of the Outbox pattern: polls
 // the outbox table on a fixed interval and publishes any pending
@@ -18,12 +18,11 @@ export class OutboxRelayService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly amqpConnection: AmqpConnection,
-        private readonly outboxEvent: OutboxEventService
+        private readonly outboxEvent: OutboxEventService,
     ) {}
 
     @Interval(2000)
     async relay() {
-
         if (this.isRunning) return;
         this.isRunning = true;
 
@@ -31,14 +30,10 @@ export class OutboxRelayService {
             const events = await this.outboxEvent.findPublishable();
 
             for (const event of events) {
-
                 try {
-                    await this.amqpConnection.publish(
-                        'user.events',
-                        event.eventType,
-                        event.payload,
-                        { persistent: true },
-                    );
+                    await this.amqpConnection.publish('user.events', event.eventType, event.payload, {
+                        persistent: true,
+                    });
 
                     await this.prisma.outboxEvent.update({
                         where: { id: event.id },
@@ -47,14 +42,12 @@ export class OutboxRelayService {
 
                     this.logger.log(`Published event ${event.id} (${event.eventType})`);
                 } catch (err) {
-
                     const newAttempts = event.attempts + 1;
                     const exhausted = newAttempts >= MAX_ATTEMPTS;
 
-
                     await this.prisma.outboxEvent.update({
                         where: { id: event.id },
-                        data: { attempts: { increment: 1 }, status: exhausted ? 'failed' : 'pending', },
+                        data: { attempts: { increment: 1 }, status: exhausted ? 'failed' : 'pending' },
                     });
 
                     if (exhausted) {
@@ -65,7 +58,7 @@ export class OutboxRelayService {
                         // inspection, and send an alert (Slack/email), same
                         // as the TODO in ConsumerService.handleFailedAccountCreated.
                     } else {
-                        this.logger.error(`Failed to publish event ${event.id}: ${err.message}`);
+                        this.logger.error(`Failed to publish event ${event.id}: ${(err as Error).message}`);
                     }
                 }
             }
