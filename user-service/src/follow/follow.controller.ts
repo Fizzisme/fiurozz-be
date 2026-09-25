@@ -1,6 +1,6 @@
-import {Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query} from '@nestjs/common';
-import {FollowService} from "./follow.service.js";
-import {OptionalUserId, UserId} from "../common/decorators/user-id.decorator.js";
+import { Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { FollowService } from './follow.service.js';
+import { OptionalUserId, UserId } from '../common/decorators/user-id.decorator.js';
 
 // Routes here are all two-segment (`:id/follow`, `:id/followers`, ...), so
 // they never collide with UserController's single-segment `GET :identifier`
@@ -8,7 +8,6 @@ import {OptionalUserId, UserId} from "../common/decorators/user-id.decorator.js"
 // count, not declaration order, for structurally distinct patterns.
 @Controller()
 export class FollowController {
-
     constructor(private readonly followService: FollowService) {}
 
     @Post(':id/follow')

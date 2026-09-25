@@ -1,11 +1,11 @@
-import {Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
-import {PrismaService} from "../prisma/prisma.service.js";
-import {Prisma} from "../generated/prisma/client.js";
-import {Occupation} from "../generated/prisma/enums.js";
-import type {UpdateProfileDto} from "./dto/update-profile.dto.js";
-import {MAX_LIMIT} from "../common/constants/pagination.js";
-import {UUID_RE} from "../common/constants/uuid.js";
-import {FollowService} from "../follow/follow.service.js";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { Occupation } from '../generated/prisma/enums.js';
+import type { UpdateProfileDto } from './dto/update-profile.dto.js';
+import { MAX_LIMIT } from '../common/constants/pagination.js';
+import { UUID_RE } from '../common/constants/uuid.js';
+import { FollowService } from '../follow/follow.service.js';
 
 interface GetUsersQuery {
     limit: number;
@@ -30,12 +30,10 @@ type UserWithPublicProfile = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UserService {
-
     constructor(
         private readonly prisma: PrismaService,
         private readonly followService: FollowService,
-    ) {
-    }
+    ) {}
 
     // userId comes from the @UserId() decorator -- see its header-trust
     // comment for the X-User-Id / Gateway contract this relies on.
@@ -57,7 +55,6 @@ export class UserService {
         }
 
         return {
-
             data: {
                 id: user.id,
                 email: user.profile.email,
@@ -78,10 +75,8 @@ export class UserService {
                 links: user.links,
                 followersCount: user.stats?.followersCount ?? 0,
                 followingCount: user.stats?.followingCount ?? 0,
-                createdAt: user.createdAt
+                createdAt: user.createdAt,
             },
-
-
         };
     }
 
@@ -149,10 +144,9 @@ export class UserService {
         });
     }
 
-
     // viewerId is optional -- this route serves anonymous visitors too, and is
     // only used to stamp isFollowing onto each card.
-    async getUsers(query: GetUsersQuery, viewerId?: string){
+    async getUsers(query: GetUsersQuery, viewerId?: string) {
         const take = Math.min(Math.max(query.limit, 1), MAX_LIMIT);
         const sortSpec = this.parseSort(query.sort);
 
@@ -185,7 +179,10 @@ export class UserService {
 
         // One lookup for the whole page -- built from `items` so the extra
         // lookahead row isn't queried for.
-        const following = await this.followService.loadFollowingSet(viewerId, items.map((user) => user.id));
+        const following = await this.followService.loadFollowingSet(
+            viewerId,
+            items.map((user) => user.id),
+        );
 
         return {
             data: {
@@ -195,7 +192,7 @@ export class UserService {
                 nextCursor: hasMore ? this.encodeCursor(sortSpec, items[items.length - 1]) : null,
                 hasMore: !!hasMore,
                 total: items.length,
-            }
+            },
         };
     }
 
@@ -237,8 +234,8 @@ export class UserService {
             sortSpec.field === 'createdAt'
                 ? { createdAt: sortSpec.direction }
                 : sortSpec.field === 'followersCount'
-                    ? { stats: { followersCount: sortSpec.direction } }
-                    : { profile: { displayName: sortSpec.direction } };
+                  ? { stats: { followersCount: sortSpec.direction } }
+                  : { profile: { displayName: sortSpec.direction } };
 
         // id as tie-breaker (same direction) so ties on the sort field
         // still produce a stable, resumable keyset order.
@@ -253,8 +250,8 @@ export class UserService {
             sortSpec.field === 'createdAt'
                 ? user.createdAt.toISOString()
                 : sortSpec.field === 'followersCount'
-                    ? String(user.stats?.followersCount ?? 0)
-                    : user.profile!.displayName;
+                  ? String(user.stats?.followersCount ?? 0)
+                  : user.profile!.displayName;
         return Buffer.from(JSON.stringify({ v: value, id: user.id })).toString('base64url');
     }
 
@@ -275,10 +272,7 @@ export class UserService {
         if (sortSpec.field === 'createdAt') {
             const value = new Date(v);
             return {
-                OR: [
-                    { createdAt: { [op]: value } },
-                    { createdAt: value, id: { [op]: id } },
-                ],
+                OR: [{ createdAt: { [op]: value } }, { createdAt: value, id: { [op]: id } }],
             };
         }
 
@@ -294,10 +288,7 @@ export class UserService {
         }
 
         return {
-            OR: [
-                { profile: { displayName: { [op]: v } } },
-                { profile: { displayName: v }, id: { [op]: id } },
-            ],
+            OR: [{ profile: { displayName: { [op]: v } } }, { profile: { displayName: v }, id: { [op]: id } }],
         };
     }
 
@@ -305,7 +296,7 @@ export class UserService {
     // (displayName is unique in this schema *and* in auth-service's Account,
     // where it originates; see PR discussion), so either one identifies
     // exactly one user.
-    async getUser(identifier: string, viewerId?: string){
+    async getUser(identifier: string, viewerId?: string) {
         const isUuid = UUID_RE.test(identifier);
 
         const user = await this.prisma.user.findFirst({
@@ -361,4 +352,3 @@ export class UserService {
         };
     }
 }
-

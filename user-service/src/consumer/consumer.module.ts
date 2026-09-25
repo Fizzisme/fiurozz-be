@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
-import {PrismaModule} from "../prisma/prisma.module.js";
-import {ConsumerService} from "./consumer.service.js";
+import { PrismaModule } from '../prisma/prisma.module.js';
+import { ConsumerService } from './consumer.service.js';
 
 @Module({
     imports: [
@@ -12,12 +12,10 @@ import {ConsumerService} from "./consumer.service.js";
         // failed messages are parked on a retry queue with a TTL, then
         // automatically routed back to the main exchange for reprocessing.
         RabbitMQModule.forRoot({
-
             // Exchanges this service publishes to / binds queues on.
             // All are "topic" type, allowing routing keys with wildcards
             // (e.g. "account.*") if needed later.
             exchanges: [
-
                 // Main exchange: where events are normally published and
                 // consumed from (e.g. "account.created").
                 { name: 'user.events', type: 'topic' },

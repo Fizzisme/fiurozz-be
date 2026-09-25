@@ -1,8 +1,8 @@
-import {Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
-import {PrismaService} from "../prisma/prisma.service.js";
-import {Prisma} from "../generated/prisma/client.js";
-import {MAX_LIMIT} from "../common/constants/pagination.js";
-import {UUID_RE} from "../common/constants/uuid.js";
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { Prisma } from '../generated/prisma/client.js';
+import { MAX_LIMIT } from '../common/constants/pagination.js';
+import { UUID_RE } from '../common/constants/uuid.js';
 
 interface ListEdgesQuery {
     limit: number;
@@ -13,9 +13,7 @@ type FollowSummaryUser = Prisma.UserGetPayload<{ include: { profile: true } }>;
 
 @Injectable()
 export class FollowService {
-
-    constructor(private readonly prisma: PrismaService) {
-    }
+    constructor(private readonly prisma: PrismaService) {}
 
     // follower_id/followee_id are @db.Uuid columns -- reject a malformed id
     // here with a clean 400 instead of letting Postgres throw a cast error.
@@ -143,9 +141,7 @@ export class FollowService {
         await this.assertUserExists(targetId);
 
         const take = Math.min(Math.max(query.limit, 1), MAX_LIMIT);
-        const conditions: Prisma.FollowWhereInput[] = [
-            { followeeId: targetId, follower: { deletedAt: null } },
-        ];
+        const conditions: Prisma.FollowWhereInput[] = [{ followeeId: targetId, follower: { deletedAt: null } }];
         if (query.cursor) {
             conditions.push(this.buildCursorWhere(query.cursor, 'followerId'));
         }
@@ -163,7 +159,10 @@ export class FollowService {
 
         // Built from `items`, not `edges` -- the extra lookahead row isn't
         // returned, so it shouldn't be queried for either.
-        const following = await this.loadFollowingSet(viewerId, items.map((e) => e.followerId));
+        const following = await this.loadFollowingSet(
+            viewerId,
+            items.map((e) => e.followerId),
+        );
 
         return {
             data: {
@@ -182,9 +181,7 @@ export class FollowService {
         await this.assertUserExists(targetId);
 
         const take = Math.min(Math.max(query.limit, 1), MAX_LIMIT);
-        const conditions: Prisma.FollowWhereInput[] = [
-            { followerId: targetId, followee: { deletedAt: null } },
-        ];
+        const conditions: Prisma.FollowWhereInput[] = [{ followerId: targetId, followee: { deletedAt: null } }];
         if (query.cursor) {
             conditions.push(this.buildCursorWhere(query.cursor, 'followeeId'));
         }
@@ -200,7 +197,10 @@ export class FollowService {
         const items = hasMore ? edges.slice(0, take) : edges;
         const last = items[items.length - 1];
 
-        const following = await this.loadFollowingSet(viewerId, items.map((e) => e.followeeId));
+        const following = await this.loadFollowingSet(
+            viewerId,
+            items.map((e) => e.followeeId),
+        );
 
         return {
             data: {
@@ -236,18 +236,12 @@ export class FollowService {
 
         if (idField === 'followerId') {
             return {
-                OR: [
-                    { createdAt: { lt: createdAt } },
-                    { createdAt, followerId: { lt: id } },
-                ],
+                OR: [{ createdAt: { lt: createdAt } }, { createdAt, followerId: { lt: id } }],
             };
         }
 
         return {
-            OR: [
-                { createdAt: { lt: createdAt } },
-                { createdAt, followeeId: { lt: id } },
-            ],
+            OR: [{ createdAt: { lt: createdAt } }, { createdAt, followeeId: { lt: id } }],
         };
     }
 

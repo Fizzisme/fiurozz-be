@@ -1,7 +1,7 @@
 import { RabbitSubscribe, AmqpConnection, Nack } from '@golevelup/nestjs-rabbitmq';
-import { PrismaService } from "../prisma/prisma.service.js";
-import { Injectable, Logger } from "@nestjs/common";
-import {Gender} from "../generated/prisma/enums.js";
+import { PrismaService } from '../prisma/prisma.service.js';
+import { Injectable, Logger } from '@nestjs/common';
+import { Gender } from '../generated/prisma/enums.js';
 
 interface AccountCreatedPayload {
     id: string;
@@ -44,7 +44,6 @@ export class ConsumerService {
     })
     async handleAccountCreated(payload: AccountCreatedPayload, amqpMsg: any) {
         try {
-
             // Idempotency check: this event may be redelivered (retry,
             // consumer crash before ack, etc.), so skip silently if the
             // user record already exists instead of erroring on a
@@ -84,7 +83,6 @@ export class ConsumerService {
             // Returning void here causes @golevelup/nestjs-rabbitmq to
             // auto-ack the message — no explicit ack call needed.
         } catch (err) {
-
             // Count only dead-letter hops that came from THIS queue
             // (the main queue). x-death accumulates one entry per queue
             // a message has been dead-lettered from, so once this message
@@ -92,29 +90,19 @@ export class ConsumerService {
             // separate x-death entry for the retry queue too — that one
             // must NOT be counted here, or retries would be under-counted.
             const deaths = amqpMsg.properties.headers?.['x-death'] ?? [];
-            const mainQueueDeath = deaths.find(
-                (d: any) => d.queue === 'user-service.account-created',
-            );
+            const mainQueueDeath = deaths.find((d: any) => d.queue === 'user-service.account-created');
             const retryCount = mainQueueDeath?.count ?? 0;
 
-            this.logger.error(
-                `Processing attempt ${retryCount + 1} failed for account ${payload.id}: ${err.message}`,
-            );
+            this.logger.error(`Processing attempt ${retryCount + 1} failed for account ${payload.id}: ${err.message}`);
 
             if (retryCount >= MAX_RETRIES) {
-                this.logger.error(
-                    `Exceeded ${MAX_RETRIES} retries, routing to DLX: ${payload.id}`,
-                );
+                this.logger.error(`Exceeded ${MAX_RETRIES} retries, routing to DLX: ${payload.id}`);
 
                 // Publish directly to the dead-letter exchange with a
                 // distinct routing key, so it lands in the dedicated
                 // "failed" queue below instead of re-entering the normal
                 // processing flow.
-                await this.amqpConnection.publish(
-                    'user.events.dlx',
-                    'account.created.failed',
-                    payload,
-                );
+                await this.amqpConnection.publish('user.events.dlx', 'account.created.failed', payload);
                 return;
             }
 
@@ -140,9 +128,7 @@ export class ConsumerService {
         // Do not throw here — throwing would leave this message stuck
         // retrying within this same queue (no DLX configured to escape
         // to), unlike the main handler above which has somewhere to go.
-        this.logger.error(
-            `Message permanently failed, needs manual intervention: ${JSON.stringify(payload)}`,
-        );
+        this.logger.error(`Message permanently failed, needs manual intervention: ${JSON.stringify(payload)}`);
         // TODO later: persist to a dedicated table for inspection, and
         // send an alert (Slack/email) so this isn't only visible in logs.
     }
