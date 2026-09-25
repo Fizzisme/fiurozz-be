@@ -222,9 +222,12 @@ export class FollowService {
 
     private decodeCursor(cursor: string): { v: string; id: string } {
         try {
-            const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+            const decoded = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
+                v?: unknown;
+                id?: unknown;
+            };
             if (typeof decoded.v !== 'string' || typeof decoded.id !== 'string') throw new Error();
-            return decoded;
+            return decoded as { v: string; id: string };
         } catch {
             throw new BadRequestException('Invalid cursor.');
         }

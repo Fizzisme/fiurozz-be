@@ -1,5 +1,5 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -11,7 +11,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const ctx = host.switchToHttp();
 
         const response = ctx.getResponse<Response>();
-        const request = ctx.getRequest<Request>();
 
         let status = HttpStatus.INTERNAL_SERVER_ERROR;
 
@@ -28,7 +27,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
                 const body = error as Record<string, unknown>;
 
                 if (Array.isArray(body.message)) {
-                    message = body.message[0];
+                    message = body.message[0] as string;
                 } else if (typeof body.message === 'string') {
                     message = body.message;
                 }

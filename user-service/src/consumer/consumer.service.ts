@@ -14,6 +14,11 @@ interface AccountCreatedPayload {
     avatarUrl: string;
 }
 
+// Only the parts of the raw AMQP message this service reads.
+interface AmqpMessage {
+    properties: { headers?: { 'x-death'?: { queue: string; count: number }[] } };
+}
+
 const MAX_RETRIES = 3;
 
 @Injectable()
@@ -42,7 +47,7 @@ export class ConsumerService {
             },
         },
     })
-    async handleAccountCreated(payload: AccountCreatedPayload, amqpMsg: any) {
+    async handleAccountCreated(payload: AccountCreatedPayload, amqpMsg: AmqpMessage) {
         try {
             // Idempotency check: this event may be redelivered (retry,
             // consumer crash before ack, etc.), so skip silently if the
@@ -90,10 +95,12 @@ export class ConsumerService {
             // separate x-death entry for the retry queue too — that one
             // must NOT be counted here, or retries would be under-counted.
             const deaths = amqpMsg.properties.headers?.['x-death'] ?? [];
-            const mainQueueDeath = deaths.find((d: any) => d.queue === 'user-service.account-created');
+            const mainQueueDeath = deaths.find((d) => d.queue === 'user-service.account-created');
             const retryCount = mainQueueDeath?.count ?? 0;
 
-            this.logger.error(`Processing attempt ${retryCount + 1} failed for account ${payload.id}: ${err.message}`);
+            this.logger.error(
+                `Processing attempt ${retryCount + 1} failed for account ${payload.id}: ${(err as Error).message}`,
+            );
 
             if (retryCount >= MAX_RETRIES) {
                 this.logger.error(`Exceeded ${MAX_RETRIES} retries, routing to DLX: ${payload.id}`);
@@ -124,7 +131,7 @@ export class ConsumerService {
         queue: 'user-service.account-created.failed',
         queueOptions: { durable: true },
     })
-    async handleFailedAccountCreated(payload: AccountCreatedPayload) {
+    handleFailedAccountCreated(payload: AccountCreatedPayload) {
         // Do not throw here — throwing would leave this message stuck
         // retrying within this same queue (no DLX configured to escape
         // to), unlike the main handler above which has somewhere to go.
