@@ -12,11 +12,12 @@ public record UpdateProjectCommand(
         String shortDescription,
         String description,
         String demoUrl,
+        String githubUrl,
         List<String> techStack,
         List<String> features
 ) {
     public boolean hasChanges() {
         return subCategoryId != null || title != null || shortDescription != null
-                || description != null || demoUrl != null || techStack != null || features != null;
+                || description != null || demoUrl != null || githubUrl != null || techStack != null || features != null;
     }
 }

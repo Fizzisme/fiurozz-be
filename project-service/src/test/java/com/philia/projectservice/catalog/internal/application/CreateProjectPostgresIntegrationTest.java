@@ -81,6 +81,7 @@ class CreateProjectPostgresIntegrationTest {
                 "A project catalog backend",
                 "The complete project description",
                 "https://demo.example.com",
+                "https://github.com/fizzisme/fiurozz-be",
                 "PRIVATE",
                 List.of("Java", "Spring Boot"),
                 List.of("Project Catalog"),
@@ -96,6 +97,7 @@ class CreateProjectPostgresIntegrationTest {
                           AND visibility = 'PRIVATE'
                           AND source_visibility = 'HIDDEN'
                           AND tech_stack = '["java", "spring-boot"]'::jsonb
+                          AND repository_url = 'https://github.com/fizzisme/fiurozz-be'
                         """)
                 .setParameter("projectId", result.id())
                 .setParameter("ownerId", ownerId)
@@ -150,6 +152,7 @@ class CreateProjectPostgresIntegrationTest {
                   "shortDescription": "A project catalog backend",
                   "description": "The complete project description",
                   "demoUrl": "https://demo.example.com",
+                  "githubUrl": "https://github.com/fizzisme/fiurozz-be",
                   "visibility": "PRIVATE",
                   "techStack": ["Java", "Spring Boot"],
                   "features": ["Project Catalog"],
@@ -173,6 +176,7 @@ class CreateProjectPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.data.sourceVisibility").value("HIDDEN"))
+                .andExpect(jsonPath("$.data.githubUrl").value("https://github.com/fizzisme/fiurozz-be"))
                 .andExpect(jsonPath("$.data.techStack[1]").value("spring-boot"))
                 .andExpect(jsonPath("$.data.tags[0].id").value(tagId.toString()))
                 .andReturn();
@@ -185,6 +189,29 @@ class CreateProjectPostgresIntegrationTest {
                 .single();
 
         assertThat(projectCount).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsNonGithubRepositoryUrlThroughHttpApi() throws Exception {
+        var requestBody = """
+                {
+                  "subCategoryId": "%s",
+                  "title": "Fiurozz Backend",
+                  "shortDescription": "A project catalog backend",
+                  "description": "The complete project description",
+                  "githubUrl": "https://gitlab.com/fizzisme/fiurozz-be"
+                }
+                """.formatted(UUID.randomUUID());
+
+        mockMvc().perform(post("/")
+                        .header("Authorization", "Bearer test-token")
+                        .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, UUID.randomUUID())
+                        .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
+                        .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.githubUrl").value("githubUrl must be a valid GitHub HTTPS URL"));
     }
 
     @Test
@@ -205,6 +232,7 @@ class CreateProjectPostgresIntegrationTest {
                 "A project catalog backend",
                 "The complete project description",
                 "https://demo.example.com",
+                null,
                 "PRIVATE",
                 List.of("Java"),
                 List.of("Project Catalog"),
@@ -251,7 +279,7 @@ class CreateProjectPostgresIntegrationTest {
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
-                "A project catalog backend", "The complete project description", "https://demo.example.com",
+                "A project catalog backend", "The complete project description", "https://demo.example.com", null,
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 
@@ -291,7 +319,7 @@ class CreateProjectPostgresIntegrationTest {
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
-                "A project catalog backend", "The complete project description", "https://demo.example.com",
+                "A project catalog backend", "The complete project description", "https://demo.example.com", null,
                 "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 
@@ -327,7 +355,7 @@ class CreateProjectPostgresIntegrationTest {
 
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
-                "A project catalog backend", "The complete project description", "https://demo.example.com",
+                "A project catalog backend", "The complete project description", "https://demo.example.com", null,
                 "PUBLIC", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
         ));
 

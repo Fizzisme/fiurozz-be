@@ -107,6 +107,7 @@ public interface CreateProjectApiDocumentation {
                                               "shortDescription": "A platform for publishing software projects.",
                                               "description": "The complete project description.",
                                               "demoUrl": "https://demo.example.com",
+                                              "githubUrl": "https://github.com/fizzisme/fiurozz-be",
                                               "visibility": "PRIVATE",
                                               "techStack": ["java", "spring-boot", "postgresql"],
                                               "features": ["Project catalog", "Project discovery"],

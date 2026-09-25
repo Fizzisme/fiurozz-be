@@ -12,7 +12,7 @@ public interface UpdateProjectWebMapper {
     default UpdateProjectCommand toCommand(UUID projectId, long expectedVersion, UpdateProjectRequest request) {
         return new UpdateProjectCommand(
                 projectId, expectedVersion, request.subCategoryId(), request.title(),
-                request.shortDescription(), request.description(), request.demoUrl(), request.techStack(), request.features()
+                request.shortDescription(), request.description(), request.demoUrl(), request.githubUrl(), request.techStack(), request.features()
         );
     }
 }

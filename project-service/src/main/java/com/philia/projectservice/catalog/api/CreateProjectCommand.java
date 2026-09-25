@@ -9,6 +9,7 @@ public record CreateProjectCommand(
         String shortDescription,
         String description,
         String demoUrl,
+        String githubUrl,
         String visibility,
         List<String> techStack,
         List<String> features,

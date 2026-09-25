@@ -91,8 +91,15 @@ public class PublishProjectHandler implements PublishProjectUseCase {
 
         if (project.demoUrl() != null) {
             var demoUrl = project.demoUrl().trim();
-            if (demoUrl.length() > 500 || !demoUrl.matches("^https://\\S+$")) {
-                throw new InvalidProjectException("Project demo URL must be a valid HTTPS URL");
+            if (demoUrl.length() > 500 || !demoUrl.matches("^https?://\\S+$")) {
+                throw new InvalidProjectException("Project demo URL must be a valid HTTP or HTTPS URL");
+            }
+        }
+
+        if (project.repositoryUrl() != null) {
+            var repositoryUrl = project.repositoryUrl().trim();
+            if (repositoryUrl.length() > 500 || !repositoryUrl.matches("^https://github\\.com/\\S+$")) {
+                throw new InvalidProjectException("Project GitHub URL must be a valid GitHub HTTPS URL");
             }
         }
     }

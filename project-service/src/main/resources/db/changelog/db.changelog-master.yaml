@@ -8,3 +8,6 @@ databaseChangeLog:
   - include:
       file: changes/003-seed-project-catalog.sql
       relativeToChangelogFile: true
+  - include:
+      file: changes/004-add-project-repository-url.sql
+      relativeToChangelogFile: true

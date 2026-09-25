@@ -85,6 +85,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
                 command.shortDescription(),
                 command.description(),
                 command.demoUrl(),
+                command.githubUrl(),
                 normalizedItems(command.techStack(), MAX_TECH_STACK_ITEMS, 60, true, "techStack"),
                 normalizedItems(command.features(), MAX_FEATURE_ITEMS, 200, false, "features"),
                 visibility,
@@ -193,7 +194,9 @@ public class CreateProjectHandler implements CreateProjectUseCase {
                 project.shortDescription(),
                 project.description(),
                 project.thumbnailUrl(),
+                List.of(),
                 project.demoUrl(),
+                project.repositoryUrl(),
                 project.techStack(),
                 project.features(),
                 tags.stream()

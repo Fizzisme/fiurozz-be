@@ -32,7 +32,8 @@ public class JpaProjectPublicationGateway implements ProjectPublicationGateway {
                 project.getSlug(),
                 project.getShortDescription(),
                 project.getDescription(),
-                project.getDemoUrl()
+                project.getDemoUrl(),
+                project.getRepositoryUrl()
         ));
     }
 

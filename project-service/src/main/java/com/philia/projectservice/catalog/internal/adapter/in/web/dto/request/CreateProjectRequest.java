@@ -25,8 +25,12 @@ public record CreateProjectRequest(
         String description,
 
         @Size(max = 500, message = "demoUrl must not exceed 500 characters")
-        @Pattern(regexp = "^https://[^\\s]+$", message = "demoUrl must be a valid HTTPS URL")
+        @Pattern(regexp = "^https?://[^\\s]+$", message = "demoUrl must be a valid HTTP or HTTPS URL")
         String demoUrl,
+
+        @Size(max = 500, message = "githubUrl must not exceed 500 characters")
+        @Pattern(regexp = "^https://github\\.com/[^\\s]+$", message = "githubUrl must be a valid GitHub HTTPS URL")
+        String githubUrl,
 
         @Pattern(
                 regexp = "^(PUBLIC|UNLISTED|PRIVATE)$",

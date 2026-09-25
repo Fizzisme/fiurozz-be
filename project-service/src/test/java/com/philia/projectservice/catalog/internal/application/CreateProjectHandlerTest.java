@@ -46,6 +46,7 @@ class CreateProjectHandlerTest {
         assertThat(result.status()).isEqualTo("DRAFT");
         assertThat(result.visibility()).isEqualTo("PRIVATE");
         assertThat(result.sourceVisibility()).isEqualTo("HIDDEN");
+        assertThat(result.githubUrl()).isEqualTo("https://github.com/fizzisme/fiurozz-be");
         assertThat(result.techStack()).containsExactly("java", "spring-boot");
         assertThat(result.features()).containsExactly("Project Catalog");
         assertThat(result.tags()).singleElement().satisfies(tag -> assertThat(tag.id()).isEqualTo(TAG_ID));
@@ -93,6 +94,7 @@ class CreateProjectHandlerTest {
                 "A project catalog backend",
                 "The complete project description",
                 "https://demo.example.com",
+                "https://github.com/fizzisme/fiurozz-be",
                 null,
                 List.of("Java", "Spring Boot", "JAVA"),
                 List.of("Project Catalog", "project catalog"),

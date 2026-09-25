@@ -58,6 +58,7 @@ class ProjectCommandControllerTest {
                 result.shortDescription(),
                 result.description(),
                 result.demoUrl(),
+                result.githubUrl(),
                 result.visibility(),
                 result.techStack(),
                 result.features(),

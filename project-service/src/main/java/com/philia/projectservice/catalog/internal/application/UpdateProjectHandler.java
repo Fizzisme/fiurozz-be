@@ -83,6 +83,7 @@ public class UpdateProjectHandler implements UpdateProjectUseCase {
                 requiredText(command.shortDescription(), current.shortDescription(), 500, "Project short description"),
                 requiredText(command.description(), current.description(), 50_000, "Project description"),
                 optionalHttpsUrl(command.demoUrl(), current.demoUrl()),
+                optionalGithubUrl(command.githubUrl(), current.repositoryUrl()),
                 command.techStack() == null ? current.techStack()
                         : normalizedItems(command.techStack(), MAX_TECH_STACK_ITEMS, 60, true, "techStack"),
                 command.features() == null ? current.features()
@@ -114,8 +115,19 @@ public class UpdateProjectHandler implements UpdateProjectUseCase {
             return current;
         }
         var trimmed = requested.trim();
-        if (trimmed.length() > 500 || !trimmed.matches("^https://\\S+$")) {
-            throw new InvalidProjectException("Project demo URL must be a valid HTTPS URL");
+        if (trimmed.length() > 500 || !trimmed.matches("^https?://\\S+$")) {
+            throw new InvalidProjectException("Project demo URL must be a valid HTTP or HTTPS URL");
+        }
+        return trimmed;
+    }
+
+    private static String optionalGithubUrl(String requested, String current) {
+        if (requested == null) {
+            return current;
+        }
+        var trimmed = requested.trim();
+        if (trimmed.length() > 500 || !trimmed.matches("^https://github\\.com/\\S+$")) {
+            throw new InvalidProjectException("Project GitHub URL must be a valid GitHub HTTPS URL");
         }
         return trimmed;
     }

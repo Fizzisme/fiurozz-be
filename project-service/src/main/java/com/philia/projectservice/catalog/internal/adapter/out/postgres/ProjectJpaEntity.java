@@ -55,6 +55,9 @@ public class ProjectJpaEntity {
     @Column(name = "demo_url")
     private String demoUrl;
 
+    @Column(name = "repository_url")
+    private String repositoryUrl;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "tech_stack", columnDefinition = "jsonb")
     private List<String> techStack = new ArrayList<>();
@@ -120,6 +123,7 @@ public class ProjectJpaEntity {
         entity.description = project.description();
         entity.thumbnailUrl = project.thumbnailUrl();
         entity.demoUrl = project.demoUrl();
+        entity.repositoryUrl = project.repositoryUrl();
         entity.techStack = new ArrayList<>(project.techStack());
         entity.features = new ArrayList<>(project.features());
         entity.status = project.status().name();
@@ -152,6 +156,7 @@ public class ProjectJpaEntity {
             String shortDescription,
             String description,
             String demoUrl,
+            String repositoryUrl,
             List<String> techStack,
             List<String> features,
             Instant updatedAt
@@ -162,6 +167,7 @@ public class ProjectJpaEntity {
         this.shortDescription = shortDescription;
         this.description = description;
         this.demoUrl = demoUrl;
+        this.repositoryUrl = repositoryUrl;
         this.techStack = new ArrayList<>(techStack);
         this.features = new ArrayList<>(features);
         this.updatedAt = updatedAt;
@@ -178,6 +184,7 @@ public class ProjectJpaEntity {
     public String getDescription() { return description; }
     public String getThumbnailUrl() { return thumbnailUrl; }
     public String getDemoUrl() { return demoUrl; }
+    public String getRepositoryUrl() { return repositoryUrl; }
     public List<String> getTechStack() { return List.copyOf(techStack); }
     public List<String> getFeatures() { return List.copyOf(features); }
     public String getStatus() { return status; }
