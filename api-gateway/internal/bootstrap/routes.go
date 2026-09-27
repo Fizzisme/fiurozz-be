@@ -29,6 +29,7 @@ func RegisterRoutes(
             breaker,
             retry,
             r.Name,
+            r.Streaming,
         )
 
         if err != nil {

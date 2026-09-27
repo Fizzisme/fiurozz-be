@@ -41,18 +41,27 @@ type ReverseProxy struct {
 	targetURL *url.URL
 	proxy     *httputil.ReverseProxy
 	timeout   time.Duration
+	streaming bool
+}
+
+// isEventStream reports whether the client asked for an SSE response.
+// Both EventSource and fetch-based SSE clients send this Accept value.
+func isEventStream(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "text/event-stream")
 }
 
 // New creates a ReverseProxy that forwards requests to target, after
 // stripping prefix from the incoming request path. Outbound calls go
 // through a circuit breaker + retry policy (see resilience.Builder),
-// and each request is bounded by timeout (see ServeHTTP).
+// and each request is bounded by timeout (see ServeHTTP). When
+// streaming is true, SSE requests are exempt from that bound.
 func New(target string,
 	prefix string,
 	timeout time.Duration,
 	breaker *gobreaker.CircuitBreaker[*http.Response],
 	retryCfg *resilience.RetryConfig,
 	service string,
+	streaming bool,
 ) (*ReverseProxy, error) {
 
 	u, err := url.Parse(target)
@@ -180,6 +189,7 @@ func New(target string,
 		targetURL: u,
 		proxy:     rp,
 		timeout: timeout,
+		streaming: streaming,
 	}, nil
 }
 
@@ -188,6 +198,22 @@ func (p *ReverseProxy) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+
+	// SSE streams on a streaming route live for minutes: clear the
+	// server-wide WriteTimeout for this response and skip the per-route
+	// timeout. Clients reconnect with Last-Event-ID if the stream drops.
+	if p.streaming && isEventStream(r) {
+		err := http.NewResponseController(w).SetWriteDeadline(time.Time{})
+		if err != nil {
+			logger.Log.Warn(
+				"cannot clear write deadline for event stream",
+				zap.Error(err),
+			)
+		}
+
+		p.proxy.ServeHTTP(w, r)
+		return
+	}
 
 	if p.timeout <= 0 {
 		p.proxy.ServeHTTP(w,r)

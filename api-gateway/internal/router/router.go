@@ -52,6 +52,8 @@ func SetupRouter(
 			"Content-Type",
 			"Accept",
 			"Authorization",
+			"Idempotency-Key",
+			"Last-Event-ID",
 		},
 
 		ExposeHeaders: []string{

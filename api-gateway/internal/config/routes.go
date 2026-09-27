@@ -16,6 +16,11 @@ type RouteConfig struct {
     RateLimit RateLimitConfig `yaml:"rate_limit"`
 
     AuthMode AuthMode `yaml:"auth_mode"`
+
+    // Streaming lets SSE requests (Accept: text/event-stream) on this
+    // route run without the per-route timeout or the server's write
+    // deadline, so long-lived event streams aren't cut off.
+    Streaming bool `yaml:"streaming"`
 }
 
 type RetryConfig struct {

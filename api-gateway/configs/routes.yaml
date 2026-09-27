@@ -62,3 +62,27 @@ routes:
       burst: 10
 
     auth_mode: optional
+
+  - name: ai
+    prefix: /api/ai
+    upstream: ${AI_SERVICE}
+
+    # Applies to non-SSE requests only; SSE streams are exempt (streaming: true).
+    timeout: 10s
+
+    retry:
+      attempts: 3
+      base_delay: 1s
+      max_delay: 3s
+
+    breaker:
+      enabled: true
+
+    rate_limit:
+      requests: 120
+      window: 1m
+      burst: 30
+
+    auth_mode: required
+
+    streaming: true
