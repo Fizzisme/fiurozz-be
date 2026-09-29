@@ -6,6 +6,7 @@ import type { UpdateProfileDto } from './dto/update-profile.dto.js';
 import { MAX_LIMIT } from '../common/constants/pagination.js';
 import { UUID_RE } from '../common/constants/uuid.js';
 import { FollowService } from '../follow/follow.service.js';
+import { ObjectStorageService, type ProfileImageKind } from '../storage/object-storage.service.js';
 
 interface GetUsersQuery {
     limit: number;
@@ -30,9 +31,13 @@ type UserWithPublicProfile = Prisma.UserGetPayload<{
 
 @Injectable()
 export class UserService {
+    static readonly MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+    static readonly MAX_COVER_BYTES = 10 * 1024 * 1024;
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly followService: FollowService,
+        private readonly objectStorage: ObjectStorageService,
     ) {}
 
     // userId comes from the @UserId() decorator -- see its header-trust
@@ -61,7 +66,9 @@ export class UserService {
                 displayName: user.profile.displayName,
                 fullName: user.profile.fullName,
                 avatarUrl: user.profile.avatarUrl,
+                avatarVariants: user.profile.avatarVariants,
                 coverUrl: user.profile.coverUrl,
+                coverVariants: user.profile.coverVariants,
                 bio: user.profile.bio,
                 occupation: user.profile.occupation,
                 company: user.profile.company,
@@ -116,6 +123,90 @@ export class UserService {
         }
 
         return this.getMe(userId);
+    }
+
+    uploadAvatar(userId: string, file?: Express.Multer.File) {
+        return this.uploadProfileImage(userId, 'avatar', file, UserService.MAX_AVATAR_BYTES);
+    }
+
+    replaceAvatar(userId: string, file?: Express.Multer.File) {
+        return this.uploadProfileImage(userId, 'avatar', file, UserService.MAX_AVATAR_BYTES);
+    }
+
+    async deleteAvatar(userId: string) {
+        return this.deleteProfileImage(userId, 'avatar');
+    }
+
+    uploadCover(userId: string, file?: Express.Multer.File) {
+        return this.uploadProfileImage(userId, 'cover', file, UserService.MAX_COVER_BYTES);
+    }
+
+    replaceCover(userId: string, file?: Express.Multer.File) {
+        return this.uploadProfileImage(userId, 'cover', file, UserService.MAX_COVER_BYTES);
+    }
+
+    async deleteCover(userId: string) {
+        return this.deleteProfileImage(userId, 'cover');
+    }
+
+    private async uploadProfileImage(
+        userId: string,
+        kind: ProfileImageKind,
+        file: Express.Multer.File | undefined,
+        maxBytes: number,
+    ) {
+        const profile = await this.prisma.userProfile.findUnique({
+            where: { userId },
+            select: { userId: true },
+        });
+        if (!profile) {
+            throw new NotFoundException('User profile not found.');
+        }
+
+        // Upload first and only move the database pointer after S3 confirms
+        // success. Objects are content-addressed and immutable, so a database
+        // failure can leave only a harmless unreferenced blob for a future
+        // grace-period GC; it can never leave a profile pointing at a missing
+        // object. Old objects are deliberately retained because project cards
+        // may hold historical avatar URLs.
+        const stored = await this.objectStorage.uploadProfileImage(kind, file, maxBytes);
+        const variants = stored.variants as unknown as Prisma.InputJsonValue;
+
+        await this.prisma.userProfile.update({
+            where: { userId },
+            data:
+                kind === 'avatar'
+                    ? { avatarUrl: stored.url, avatarObjectKey: stored.key, avatarVariants: variants }
+                    : { coverUrl: stored.url, coverObjectKey: stored.key, coverVariants: variants },
+        });
+
+        return {
+            data:
+                kind === 'avatar'
+                    ? { avatarUrl: stored.url, avatarVariants: stored.variants, sha256: stored.sha256 }
+                    : { coverUrl: stored.url, coverVariants: stored.variants, sha256: stored.sha256 },
+        };
+    }
+
+    private async deleteProfileImage(userId: string, kind: ProfileImageKind) {
+        const result = await this.prisma.userProfile.updateMany({
+            where: { userId },
+            data:
+                kind === 'avatar'
+                    ? { avatarUrl: null, avatarObjectKey: null, avatarVariants: Prisma.DbNull }
+                    : { coverUrl: null, coverObjectKey: null, coverVariants: Prisma.DbNull },
+        });
+        if (result.count === 0) {
+            throw new NotFoundException('User profile not found.');
+        }
+
+        // Do not delete the content-addressed S3 object here. The same blob
+        // may still be referenced elsewhere. A separate garbage collector
+        // can remove unreferenced objects after a grace period.
+        return {
+            data:
+                kind === 'avatar' ? { avatarUrl: null, avatarVariants: null } : { coverUrl: null, coverVariants: null },
+        };
     }
 
     // Replaces the user's full skill list with `names` (not a diff/append).
@@ -338,7 +429,9 @@ export class UserService {
             displayName: profile.displayName,
             fullName: profile.fullName,
             avatarUrl: profile.avatarUrl,
+            avatarVariants: profile.avatarVariants,
             coverUrl: profile.coverUrl,
+            coverVariants: profile.coverVariants,
             bio: profile.bio,
             occupation: profile.occupation,
             company: profile.company,

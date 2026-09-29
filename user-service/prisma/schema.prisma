@@ -53,12 +53,12 @@ enum Occupation {
 }
 
 model User {
-  id String @id @db.Uuid
-  profile   UserProfile?
-  settings  UserSetting?
-  stats     UserStats?
-  links     SocialLink[]
-  skills    UserSkill[]
+  id       String       @id @db.Uuid
+  profile  UserProfile?
+  settings UserSetting?
+  stats    UserStats?
+  links    SocialLink[]
+  skills   UserSkill[]
 
   // Directed follow graph: `following` = edges this user created,
   // `followers` = edges pointing at this user. Two relations over the
@@ -66,8 +66,8 @@ model User {
   following Follow[] @relation("Following")
   followers Follow[] @relation("Followers")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   @@index([deletedAt, createdAt])
@@ -85,7 +85,15 @@ model UserProfile {
 
   avatarUrl String? @map("avatar_url")
 
+  avatarObjectKey String? @map("avatar_object_key") @db.VarChar(512)
+
+  avatarVariants Json? @map("avatar_variants")
+
   coverUrl String? @map("cover_url")
+
+  coverObjectKey String? @map("cover_object_key") @db.VarChar(512)
+
+  coverVariants Json? @map("cover_variants")
 
   bio String? @db.VarChar(500)
 
