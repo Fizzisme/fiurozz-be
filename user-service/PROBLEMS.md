@@ -2,9 +2,9 @@
 
 Reviewed 2026-08-30 against `main`. Cross-service issues (RabbitMQ provisioning, env var naming, shared JWT secret, the `account.created` schema mismatch) are tracked in the root [`PROBLEMS.md`](../PROBLEMS.md) — this file covers issues local to this service's own code.
 
-## The service is read-only despite a data model built for mutation
+## Profile mutation coverage is incomplete
 
-The only HTTP endpoint is `GET /me` (`src/user/user.controller.ts`). There is no endpoint to update profile fields, change settings, or add/edit/reorder social links, even though `prisma/schema.prisma` clearly models all of that (`UserProfile`'s editable fields, `UserSetting`'s toggles, `SocialLink`'s `order` field for reordering). Right now a `UserProfile` is created once, empty, by the `account.created` consumer, and nothing in this service can ever change it afterward.
+Profile fields and skills can now be changed through `PATCH /me`, and avatar/cover images can be uploaded to S3-compatible storage through `POST /me/avatar` and `POST /me/cover`. Settings and social-link mutation endpoints are still missing even though `prisma/schema.prisma` models those records.
 
 **Impact:** not a bug, but likely the single biggest functional gap if the intent is a usable profile feature rather than just the event-consumption plumbing — worth flagging so it isn't mistaken for "done."
 
@@ -12,7 +12,7 @@ The only HTTP endpoint is `GET /me` (`src/user/user.controller.ts`). There is no
 
 `api-gateway/configs/routes.yaml` registers the `/api/users` prefix with `auth_mode: optional`, meaning the gateway will proxy a request through **without** a valid token. Endpoints under that prefix now want two different policies:
 
-- **Public:** `GET /` (users list) and `GET /:identifier` (public profile) — the members directory is browsable by anonymous visitors, and each optionally personalizes `isFollowing` from `X-User-Id` when a token *is* present.
+- **Public:** `GET /` (users list) and `GET /:identifier` (public profile) — the members directory is browsable by anonymous visitors, and each optionally personalizes `isFollowing` from `X-User-Id` when a token _is_ present.
 - **Authenticated:** `GET /me`, `PATCH /me`, `POST|DELETE /:id/follow` — meaningless without an identity, and each rejects a missing one via the `@UserId()` decorator (`src/common/decorators/user-id.decorator.ts`), which throws `UnauthorizedException`.
 
 `optional` is the only mode that lets the public endpoints work at all, so it is the correct setting today — but it is correct by luck of being the permissive option, not because the gateway can express this split. The authenticated endpoints get their 401 one layer further in than intended (inside this service, via a thrown exception, rather than at the gateway).
@@ -39,11 +39,19 @@ One gateway-side caveat worth knowing if that work happens: `auth_mode: none` re
 
 **Fix:** at minimum, persist failed payloads to a table for manual reprocessing, per the existing TODO — this is already tracked in code, repeating it here so it isn't lost among the RabbitMQ plumbing.
 
-## No automated tests
+## Automated test coverage is still narrow
 
-Same as `auth-service` — `package.json` has Jest configured but there is no `test/` directory and zero `*.spec.ts` files. The highest-value target here is `handleAccountCreated`'s idempotency check and the `x-death`-based retry counting (both easy to get subtly wrong and hard to notice without a test, since they only matter on redelivery/failure paths that don't show up in a normal happy-path manual test).
+The profile-image storage and multipart controller paths now have unit/controller tests. The highest-value uncovered target remains `handleAccountCreated`'s idempotency check and the `x-death`-based retry counting (both easy to get subtly wrong and hard to notice without a test, since they only matter on redelivery/failure paths that don't show up in a normal happy-path manual test).
 
 **Fix:** see root `PROBLEMS.md` item 11 for the cross-service framing; for this service specifically, a test harness that can simulate RabbitMQ redelivery (or at least call `handleAccountCreated` twice with the same payload and assert no duplicate/error) would directly cover the idempotency guarantee the code relies on.
+
+## Profile-image quota and GC coordination are single-instance
+
+The upload quota is held in process memory, and the storage mutation lock that prevents an upload from racing the daily garbage collector only coordinates work inside one `user-service` process. This is correct for the current single-instance deployment, and the existing gateway also supplies a broader per-user/IP rate limit.
+
+**Impact:** before scaling `user-service` horizontally, the effective upload allowance would be multiplied by the replica count and more than one replica could run the same GC scan.
+
+**Fix before horizontal scaling:** move the upload counter to Redis and protect the GC job with a distributed lease or PostgreSQL advisory lock. The 24-hour object-age check remains required even after distributed coordination is added.
 
 ## Traces were mislabeled as `AUTH-SERVICE` — FIXED 2026-09-14
 

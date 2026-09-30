@@ -11,6 +11,19 @@ services:
     environment:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-user-media}
+      S3_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      S3_FORCE_PATH_STYLE: "true"
+      S3_AUTO_CREATE_BUCKET: "true"
+      S3_PUBLIC_READ: "true"
+      PROFILE_IMAGE_GC_ENABLED: ${PROFILE_IMAGE_GC_ENABLED:-true}
+      PROFILE_IMAGE_GC_GRACE_HOURS: ${PROFILE_IMAGE_GC_GRACE_HOURS:-24}
+      PROFILE_IMAGE_UPLOAD_LIMIT: ${PROFILE_IMAGE_UPLOAD_LIMIT:-5}
+      PROFILE_IMAGE_UPLOAD_WINDOW_SECONDS: ${PROFILE_IMAGE_UPLOAD_WINDOW_SECONDS:-60}
     ports:
       - "${USER_SERVICE_PORT:-8082}:8082"
     depends_on:
@@ -18,3 +31,5 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_started
+      minio:
+        condition: service_healthy
