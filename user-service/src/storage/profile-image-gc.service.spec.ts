@@ -2,18 +2,20 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { ConfigService } from '@nestjs/config';
 import { ProfileImageGcService } from './profile-image-gc.service.js';
 
+type AsyncMock = (...args: unknown[]) => Promise<unknown>;
+
 describe('ProfileImageGcService', () => {
     it('passes referenced keys and a 24-hour cutoff to object storage', async () => {
         const prisma = {
             userProfile: {
-                findMany: jest.fn().mockResolvedValue([
+                findMany: jest.fn<AsyncMock>().mockResolvedValue([
                     { avatarObjectKey: 'profile-images/avatar/hash/256x256.webp', coverObjectKey: null },
                     { avatarObjectKey: null, coverObjectKey: 'profile-images/cover/hash/1280x480.webp' },
                 ]),
             },
         };
         const objectStorage = {
-            deleteUnreferencedProfileImages: jest.fn().mockResolvedValue({ scanned: 4, deleted: 2 }),
+            deleteUnreferencedProfileImages: jest.fn<AsyncMock>().mockResolvedValue({ scanned: 4, deleted: 2 }),
         };
         const config = {
             get: jest.fn((key: string, fallback: string) => {

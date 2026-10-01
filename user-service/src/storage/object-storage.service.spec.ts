@@ -19,10 +19,12 @@ function file(buffer: Buffer): Express.Multer.File {
     };
 }
 
+type AsyncMock = (...args: unknown[]) => Promise<unknown>;
+
 describe('ObjectStorageService', () => {
-    const send = jest.fn();
+    const send = jest.fn<AsyncMock>();
     const client = { send } as unknown as S3Client;
-    const imageProcessor = { process: jest.fn() };
+    const imageProcessor = { process: jest.fn<AsyncMock>() };
     const config = {
         get: jest.fn((key: string, fallback: string) => {
             const values: Record<string, string> = {
