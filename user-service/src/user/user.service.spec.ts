@@ -2,16 +2,18 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service.js';
 
+type AsyncMock = (...args: unknown[]) => Promise<unknown>;
+
 describe('UserService profile image uploads', () => {
     const prisma = {
         userProfile: {
-            findUnique: jest.fn(),
-            update: jest.fn(),
-            updateMany: jest.fn(),
+            findUnique: jest.fn<AsyncMock>(),
+            update: jest.fn<AsyncMock>(),
+            updateMany: jest.fn<AsyncMock>(),
         },
     };
     const objectStorage = {
-        uploadProfileImage: jest.fn(),
+        uploadProfileImage: jest.fn<AsyncMock>(),
     };
     const service = new UserService(prisma as never, {} as never, objectStorage as never);
 
