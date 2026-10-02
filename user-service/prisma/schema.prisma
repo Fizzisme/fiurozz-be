@@ -228,3 +228,17 @@ model UserSkill {
   @@index([skillId])
   @@map("user_skills")
 }
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  eventType   String    @map("event_type")
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at")
+  processedAt DateTime? @map("processed_at")
+  attempts    Int       @default(0)
+  status      String    @default("pending")
+
+  @@index([status, processedAt, createdAt])
+  @@map("outbox_events")
+}
