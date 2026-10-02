@@ -42,6 +42,12 @@ routes:
 
     auth_mode: optional
 
+    # multipart/form-data only: profile avatar (5 MB) and cover (10 MB)
+    # uploads. Body cap = 11 MB (11 * 1024 * 1024) to cover multipart overhead.
+    upload:
+      timeout: 30s
+      max_body_bytes: 11534336
+
   - name: project
     prefix: /api/projects
     upstream: ${PROJECT_SERVICE}
@@ -57,11 +63,18 @@ routes:
       enabled: true
 
     rate_limit:
-      requests: 30
+      requests: 45
       window: 1m
       burst: 10
 
     auth_mode: optional
+
+    # multipart/form-data only: create project with up to 5 images
+    # (5 MB each) and one 50 MB video. Matches project-service's
+    # spring.servlet.multipart.max-request-size (80MB = 80 * 1024 * 1024).
+    upload:
+      timeout: 120s
+      max_body_bytes: 83886080
 
   - name: ai
     prefix: /api/ai

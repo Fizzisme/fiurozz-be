@@ -52,6 +52,7 @@ func SetupRouter(
 			"Content-Type",
 			"Accept",
 			"Authorization",
+			"If-Match",
 			"Idempotency-Key",
 			"Last-Event-ID",
 		},

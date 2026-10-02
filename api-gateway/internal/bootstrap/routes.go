@@ -30,6 +30,8 @@ func RegisterRoutes(
             retry,
             r.Name,
             r.Streaming,
+            r.Upload.Timeout,
+            r.Upload.MaxBodyBytes,
         )
 
         if err != nil {

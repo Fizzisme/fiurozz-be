@@ -21,6 +21,11 @@ type RouteConfig struct {
     // route run without the per-route timeout or the server's write
     // deadline, so long-lived event streams aren't cut off.
     Streaming bool `yaml:"streaming"`
+
+    // Upload gives multipart/form-data requests on this route a longer
+    // deadline and a body size cap, so large file uploads aren't cut off
+    // by the per-route timeout or the server's 10s ReadTimeout.
+    Upload UploadConfig `yaml:"upload"`
 }
 
 type RetryConfig struct {
@@ -37,6 +42,12 @@ type RateLimitConfig struct {
     Requests int           `yaml:"requests"`
     Window   time.Duration `yaml:"window"`
     Burst    int           `yaml:"burst"`
+}
+
+type UploadConfig struct {
+    // Zero disables upload handling for the route.
+    Timeout time.Duration `yaml:"timeout"`
+    MaxBodyBytes int64         `yaml:"max_body_bytes"`
 }
 
 type AuthMode string

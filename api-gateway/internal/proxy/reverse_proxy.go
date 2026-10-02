@@ -42,12 +42,22 @@ type ReverseProxy struct {
 	proxy     *httputil.ReverseProxy
 	timeout   time.Duration
 	streaming bool
+	uploadTimeout time.Duration
+	uploadMaxBody int64
 }
 
 // isEventStream reports whether the client asked for an SSE response.
 // Both EventSource and fetch-based SSE clients send this Accept value.
 func isEventStream(r *http.Request) bool {
 	return strings.Contains(r.Header.Get("Accept"), "text/event-stream")
+}
+
+// isMultipart reports whether the request carries a file upload form.
+func isMultipart(r *http.Request) bool {
+	return strings.HasPrefix(
+		strings.ToLower(r.Header.Get("Content-Type")),
+		"multipart/form-data",
+	)
 }
 
 // New creates a ReverseProxy that forwards requests to target, after
@@ -62,6 +72,8 @@ func New(target string,
 	retryCfg *resilience.RetryConfig,
 	service string,
 	streaming bool,
+	uploadTimeout time.Duration,
+	uploadMaxBody int64,
 ) (*ReverseProxy, error) {
 
 	u, err := url.Parse(target)
@@ -105,6 +117,10 @@ func New(target string,
             pr.Out.URL.Path,
             prefix,
         )
+
+		if pr.Out.URL.Path == "" {
+    		pr.Out.URL.Path = "/"
+		}
 
         // Drop the client's original Authorization header (raw JWT).
     	// The backend should trust the gateway-verified identity
@@ -153,6 +169,16 @@ func New(target string,
 		err error,
 	) {
 
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			http.Error(
+				w,
+				"Request entity too large",
+				http.StatusRequestEntityTooLarge,
+			)
+			return
+		}
+
 		logger.Log.Error(
 			"proxy error",
 			zap.Error(err),
@@ -190,6 +216,8 @@ func New(target string,
 		proxy:     rp,
 		timeout: timeout,
 		streaming: streaming,
+		uploadTimeout: uploadTimeout,
+		uploadMaxBody: uploadMaxBody,
 	}, nil
 }
 
@@ -198,6 +226,42 @@ func (p *ReverseProxy) ServeHTTP(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+
+	// File uploads on an upload-enabled route: reject oversized bodies
+	// early, extend the server-wide read/write deadlines (10s in main.go)
+	// for this request only, and use the upload timeout instead of the
+	// regular per-route one.
+	if p.uploadTimeout > 0 && isMultipart(r) {
+		if p.uploadMaxBody > 0 {
+			if r.ContentLength > p.uploadMaxBody {
+				http.Error(
+					w,
+					"Request entity too large",
+					http.StatusRequestEntityTooLarge,
+				)
+				return
+			}
+			// Backstop for requests without a reliable Content-Length;
+			// ErrorHandler maps the resulting error to 413.
+			r.Body = http.MaxBytesReader(w, r.Body, p.uploadMaxBody)
+		}
+
+		deadline := time.Now().Add(p.uploadTimeout)
+		rc := http.NewResponseController(w)
+		if err := rc.SetReadDeadline(deadline); err != nil {
+			logger.Log.Warn("cannot extend read deadline for upload", zap.Error(err))
+		}
+		if err := rc.SetWriteDeadline(deadline); err != nil {
+			logger.Log.Warn("cannot extend write deadline for upload", zap.Error(err))
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), p.uploadTimeout)
+		defer cancel()
+
+		p.proxy.ServeHTTP(w, r.Clone(ctx))
+		return
+	}
+
 
 	// SSE streams on a streaming route live for minutes: clear the
 	// server-wide WriteTimeout for this response and skip the per-route
