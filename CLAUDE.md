@@ -14,7 +14,7 @@ Fiurozz is a **personal showcase/portfolio backend**, built to demonstrate micro
 | --- | --- | --- | --- | --- |
 | `api-gateway` | Go 1.26, Gin | `configs/.env` → `PORT` | none (stateless) | `cmd/server/main.go` |
 | `auth-service` | NestJS 11, Prisma 7 | `.env` → `PORT` | PostgreSQL (`accounts`, `oauth_accounts`, `refresh_tokens`, `outbox_events`) | `src/main.ts` |
-| `user-service` | NestJS 11, Prisma 7 | `.env` → `PORT` | PostgreSQL (`users`, `user_profiles`, `user_settings`, `social_links`) | `src/main.ts` |
+| `user-service` | NestJS 11, Prisma 7 | `.env` → `PORT` | PostgreSQL (`users`, `user_profiles`, `user_settings`, `social_links`, `outbox_events`) | `src/main.ts` |
 | `project-service` | Spring Boot | — | PostgreSQL (`product_service`) | out of scope |
 
 Each NestJS service has its own Prisma schema and its own Postgres database — there is no shared database. All cross-service data flow goes through the gateway (synchronous, request/response) or RabbitMQ (asynchronous, events).
