@@ -3,11 +3,13 @@ package com.philia.projectservice.catalog.internal.application;
 import com.philia.projectservice.catalog.api.CreateProjectCommand;
 import com.philia.projectservice.catalog.api.CreateProjectUseCase;
 import com.philia.projectservice.catalog.api.ProjectDetailResult;
+import com.philia.projectservice.catalog.internal.application.exception.OwnerProfileUnavailableException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectSlugAlreadyExistsException;
 import com.philia.projectservice.catalog.internal.application.exception.SubCategoryUnavailableException;
 import com.philia.projectservice.catalog.internal.application.exception.TagsUnavailableException;
 import com.philia.projectservice.catalog.internal.application.port.out.CatalogReferenceQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.CurrentActor;
+import com.philia.projectservice.catalog.internal.application.port.out.OwnerSnapshotRepository;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaRepository.NewProjectMedia;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaStorage;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectRepository;
@@ -37,6 +39,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
     private static final int MAX_TAGS = 10;
 
     private final CurrentActor currentActor;
+    private final OwnerSnapshotRepository ownerSnapshots;
     private final ProjectRepository projectRepository;
     private final CatalogReferenceQuery catalogReferenceQuery;
     private final ProjectMediaStorage mediaStorage;
@@ -45,6 +48,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
 
     public CreateProjectHandler(
             CurrentActor currentActor,
+            OwnerSnapshotRepository ownerSnapshots,
             ProjectRepository projectRepository,
             CatalogReferenceQuery catalogReferenceQuery,
             ProjectMediaStorage mediaStorage,
@@ -52,6 +56,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
             Clock clock
     ) {
         this.currentActor = currentActor;
+        this.ownerSnapshots = ownerSnapshots;
         this.projectRepository = projectRepository;
         this.catalogReferenceQuery = catalogReferenceQuery;
         this.mediaStorage = mediaStorage;
@@ -83,6 +88,12 @@ public class CreateProjectHandler implements CreateProjectUseCase {
             throw new ProjectSlugAlreadyExistsException(slug.value());
         }
 
+        // The gateway only identifies the caller; the name and avatar come from the snapshot that
+        // user-service events keep up to date.
+        var owner = ownerSnapshots.find(actor.id())
+                .filter(snapshot -> snapshot.displayName() != null)
+                .orElseThrow(() -> new OwnerProfileUnavailableException(actor.id()));
+
         var projectId = UUID.randomUUID();
         var media = planStorage(projectId, validatedMedia);
         var now = clock.instant();
@@ -90,8 +101,8 @@ public class CreateProjectHandler implements CreateProjectUseCase {
         var project = Project.create(
                 projectId,
                 actor.id(),
-                actor.displayName(),
-                actor.avatarUrl(),
+                owner.displayName(),
+                owner.avatarUrl(),
                 subCategory.id(),
                 command.title(),
                 slug,

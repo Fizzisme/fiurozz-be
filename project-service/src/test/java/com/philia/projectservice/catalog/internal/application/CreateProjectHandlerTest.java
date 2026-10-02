@@ -4,10 +4,12 @@ import com.philia.projectservice.catalog.api.CreateProjectCommand;
 import com.philia.projectservice.catalog.api.ProjectDetailResult;
 import com.philia.projectservice.catalog.api.ProjectMediaUpload;
 import com.philia.projectservice.catalog.internal.application.exception.MediaStorageUnavailableException;
+import com.philia.projectservice.catalog.internal.application.exception.OwnerProfileUnavailableException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectMediaValidationException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectSlugAlreadyExistsException;
 import com.philia.projectservice.catalog.internal.application.port.out.CatalogReferenceQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.CurrentActor;
+import com.philia.projectservice.catalog.internal.application.port.out.OwnerSnapshotRepository;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaRepository;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaStorage;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectRepository;
@@ -40,6 +42,7 @@ class CreateProjectHandlerTest {
     private static final UUID CATEGORY_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final UUID SUB_CATEGORY_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
     private static final UUID TAG_ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
+    private static final String OWNER_AVATAR_URL = "https://cdn.example.com/avatars/philia.webp";
 
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D};
     private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10};
@@ -49,6 +52,7 @@ class CreateProjectHandlerTest {
     private final FakeProjectTagRepository projectTags = new FakeProjectTagRepository();
     private final FakeProjectMediaRepository projectMedia = new FakeProjectMediaRepository();
     private final FakeMediaStorage storage = new FakeMediaStorage();
+    private final FakeOwnerSnapshotRepository ownerSnapshots = new FakeOwnerSnapshotRepository();
 
     @Test
     void createsDraftProjectAndAssignsValidatedTags() {
@@ -56,6 +60,8 @@ class CreateProjectHandlerTest {
 
         assertThat(result.id()).isNotNull();
         assertThat(result.owner().id()).isEqualTo(OWNER_ID);
+        assertThat(result.owner().displayName()).isEqualTo("Philia");
+        assertThat(result.owner().avatarUrl()).isEqualTo(OWNER_AVATAR_URL);
         assertThat(result.category().id()).isEqualTo(CATEGORY_ID);
         assertThat(result.subCategory().id()).isEqualTo(SUB_CATEGORY_ID);
         assertThat(result.slug()).isEqualTo("fiurozz-backend");
@@ -113,6 +119,39 @@ class CreateProjectHandlerTest {
         assertThat(storage.stored).isEmpty();
         assertThat(projects.saved).isNull();
         assertThat(projectTags.assignments).isEmpty();
+    }
+
+    @Test
+    void usesTheOwnerSnapshotInsteadOfTheGatewayHeaders() {
+        ownerSnapshots.snapshot = new OwnerSnapshotRepository.OwnerSnapshot(OWNER_ID, "Snapshot Name", null);
+
+        var result = handler().create(command());
+
+        assertThat(result.owner().displayName()).isEqualTo("Snapshot Name");
+        assertThat(result.owner().avatarUrl()).isNull();
+        assertThat(projects.saved.ownerDisplayName()).isEqualTo("Snapshot Name");
+    }
+
+    @Test
+    void rejectsCreationBeforeUploadingWhenTheOwnerSnapshotIsMissing() {
+        ownerSnapshots.snapshot = null;
+
+        assertThatThrownBy(() -> handler().create(command()))
+                .isInstanceOf(OwnerProfileUnavailableException.class)
+                .hasMessageContaining(OWNER_ID.toString());
+
+        assertThat(storage.stored).isEmpty();
+        assertThat(projects.saved).isNull();
+    }
+
+    @Test
+    void rejectsCreationWhenTheOwnerSnapshotHasNoDisplayName() {
+        ownerSnapshots.snapshot = new OwnerSnapshotRepository.OwnerSnapshot(OWNER_ID, null, OWNER_AVATAR_URL);
+
+        assertThatThrownBy(() -> handler().create(command()))
+                .isInstanceOf(OwnerProfileUnavailableException.class);
+
+        assertThat(storage.stored).isEmpty();
     }
 
     @Test
@@ -174,9 +213,11 @@ class CreateProjectHandlerTest {
     }
 
     private CreateProjectHandler handler() {
-        CurrentActor currentActor = () -> Optional.of(new CurrentActor.Actor(OWNER_ID, "Philia", null));
+        // The gateway headers deliberately carry a different name than the snapshot.
+        CurrentActor currentActor = () -> Optional.of(new CurrentActor.Actor(OWNER_ID, "owner@example.com", null));
         return new CreateProjectHandler(
                 currentActor,
+                ownerSnapshots,
                 projects,
                 new FakeCatalogReferenceQuery(),
                 storage,
@@ -213,6 +254,35 @@ class CreateProjectHandlerTest {
 
     private static ProjectMediaUpload image(byte[] content) {
         return new ProjectMediaUpload("image", content.length, () -> new ByteArrayInputStream(content));
+    }
+
+    private static final class FakeOwnerSnapshotRepository implements OwnerSnapshotRepository {
+        OwnerSnapshot snapshot = new OwnerSnapshot(OWNER_ID, "Philia", OWNER_AVATAR_URL);
+
+        @Override
+        public Optional<OwnerSnapshot> find(UUID userId) {
+            return Optional.ofNullable(snapshot).filter(found -> found.userId().equals(userId));
+        }
+
+        @Override
+        public void seed(UUID userId, String displayName, String avatarUrl) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void changeDisplayName(UUID userId, String displayName) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void changeAvatarUrl(UUID userId, String avatarUrl) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void propagateToProjects(UUID userId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private static final class FakeProjectRepository implements ProjectRepository {
