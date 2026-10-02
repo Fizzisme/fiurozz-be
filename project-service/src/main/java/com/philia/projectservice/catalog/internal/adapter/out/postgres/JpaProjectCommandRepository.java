@@ -55,6 +55,7 @@ interface JpaProjectCommandRepository extends JpaRepository<ProjectJpaEntity, UU
     @Query("""
             UPDATE ProjectJpaEntity project
             SET project.status = 'PUBLISHED',
+                project.visibility = :visibility,
                 project.publishedAt = :publishedAt,
                 project.updatedAt = :publishedAt,
                 project.version = project.version + 1
@@ -68,6 +69,7 @@ interface JpaProjectCommandRepository extends JpaRepository<ProjectJpaEntity, UU
             @Param("projectId") UUID projectId,
             @Param("ownerId") UUID ownerId,
             @Param("expectedVersion") long expectedVersion,
+            @Param("visibility") String visibility,
             @Param("publishedAt") Instant publishedAt
     );
 

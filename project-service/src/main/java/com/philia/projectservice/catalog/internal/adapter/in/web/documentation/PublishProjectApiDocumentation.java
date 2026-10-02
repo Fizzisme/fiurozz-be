@@ -1,5 +1,6 @@
 package com.philia.projectservice.catalog.internal.adapter.in.web.documentation;
 
+import com.philia.projectservice.catalog.internal.adapter.in.web.dto.request.PublishProjectRequest;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.response.ProjectDetailResponse;
 import com.philia.projectservice.shared.openapi.ApiErrorResponseDocumentation;
 import com.philia.projectservice.shared.openapi.OpenApiConfiguration;
@@ -20,8 +21,9 @@ public interface PublishProjectApiDocumentation {
     @Operation(
             operationId = "publishProject",
             summary = "Publish a project",
-            description = "Publishes an owned DRAFT project after validating its active subcategory and tags. "
-                    + "Repeating a request with the current ETag for an already published project is idempotent."
+            description = "Publishes an owned DRAFT project after validating its active subcategory and tags, "
+                    + "and sets its visibility (PUBLIC, UNLISTED or PRIVATE; defaults to PRIVATE when the body or "
+                    + "field is omitted). Repeating a request with the current ETag for an already published project is idempotent."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
@@ -47,5 +49,6 @@ public interface PublishProjectApiDocumentation {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ApiErrorResponseDocumentation.class)))
     })
-    ResponseEntity<ApiResponse<ProjectDetailResponse>> publishProject(UUID projectId, String ifMatch);
+    ResponseEntity<ApiResponse<ProjectDetailResponse>> publishProject(
+            UUID projectId, String ifMatch, PublishProjectRequest request);
 }

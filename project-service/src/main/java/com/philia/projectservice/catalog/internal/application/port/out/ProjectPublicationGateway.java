@@ -1,5 +1,7 @@
 package com.philia.projectservice.catalog.internal.application.port.out;
 
+import com.philia.projectservice.catalog.internal.domain.ProjectVisibility;
+
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
@@ -10,7 +12,8 @@ public interface ProjectPublicationGateway {
 
     Optional<ProjectState> findActiveState(UUID projectId);
 
-    boolean publishIfCurrent(UUID projectId, UUID ownerId, long expectedVersion, Instant publishedAt);
+    boolean publishIfCurrent(UUID projectId, UUID ownerId, long expectedVersion,
+                             ProjectVisibility visibility, Instant publishedAt);
 
     record ProjectState(
             UUID ownerId,

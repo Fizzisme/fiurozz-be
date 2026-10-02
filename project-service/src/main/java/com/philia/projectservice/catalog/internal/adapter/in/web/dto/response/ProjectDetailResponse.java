@@ -15,6 +15,7 @@ public record ProjectDetailResponse(
         String description,
         String thumbnailUrl,
         List<String> images,
+        List<MediaResponse> media,
         String demoUrl,
         String githubUrl,
         List<String> techStack,
@@ -40,6 +41,9 @@ public record ProjectDetailResponse(
     }
 
     public record TagResponse(UUID id, String slug, String displayName) {
+    }
+
+    public record MediaResponse(UUID id, String mediaType, String url, int sortOrder) {
     }
 
     public record StatisticsResponse(long viewCount, long likeCount, long commentCount) {

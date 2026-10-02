@@ -33,6 +33,7 @@
         <spring-grpc.version>1.0.3</spring-grpc.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <springdoc-openapi.version>3.0.3</springdoc-openapi.version>
+        <aws-sdk.version>2.46.7</aws-sdk.version>
     </properties>
     <dependencies>
         <dependency>
@@ -92,6 +93,10 @@
         <dependency>
             <groupId>org.springframework.grpc</groupId>
             <artifactId>spring-grpc-server-web-spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
         </dependency>
 
         <dependency>
@@ -172,6 +177,13 @@
                 <groupId>org.springframework.grpc</groupId>
                 <artifactId>spring-grpc-dependencies</artifactId>
                 <version>${spring-grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

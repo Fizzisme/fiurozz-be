@@ -9,12 +9,23 @@ import java.util.UUID;
 
 interface JpaProjectMediaRepository extends Repository<ProjectJpaEntity, UUID> {
 
+    // Aliases are quoted because PostgreSQL folds unquoted identifiers to lower case,
+    // which would not match the projection getters.
     @Query(value = """
-            SELECT media_url
+            SELECT id AS "id", media_type AS "mediaType", media_url AS "mediaUrl", sort_order AS "sortOrder"
             FROM project_media
             WHERE project_id = :projectId
-              AND media_type = 'IMAGE'
             ORDER BY sort_order, created_at, id
             """, nativeQuery = true)
-    List<String> findImageUrlsByProjectId(@Param("projectId") UUID projectId);
+    List<MediaRow> findMediaByProjectId(@Param("projectId") UUID projectId);
+
+    interface MediaRow {
+        UUID getId();
+
+        String getMediaType();
+
+        String getMediaUrl();
+
+        int getSortOrder();
+    }
 }

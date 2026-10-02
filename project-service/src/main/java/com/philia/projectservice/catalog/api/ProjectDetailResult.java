@@ -19,6 +19,7 @@ public record ProjectDetailResult(
         String description,
         String thumbnailUrl,
         List<String> images,
+        List<Media> media,
         String demoUrl,
         String githubUrl,
         List<String> techStack,
@@ -36,9 +37,43 @@ public record ProjectDetailResult(
 
     public ProjectDetailResult {
         images = List.copyOf(images);
+        media = List.copyOf(media);
         techStack = List.copyOf(techStack);
         features = List.copyOf(features);
         tags = List.copyOf(tags);
+    }
+
+    /**
+     * Compatibility constructor for callers that predate {@code media}.
+     */
+    public ProjectDetailResult(
+            UUID id,
+            Owner owner,
+            Category category,
+            SubCategory subCategory,
+            String title,
+            String slug,
+            String shortDescription,
+            String description,
+            String thumbnailUrl,
+            List<String> images,
+            String demoUrl,
+            String githubUrl,
+            List<String> techStack,
+            List<String> features,
+            List<Tag> tags,
+            String status,
+            String visibility,
+            String sourceVisibility,
+            Statistics statistics,
+            Instant publishedAt,
+            Instant createdAt,
+            Instant updatedAt,
+            long version
+    ) {
+        this(id, owner, category, subCategory, title, slug, shortDescription, description, thumbnailUrl,
+                images, List.of(), demoUrl, githubUrl, techStack, features, tags, status, visibility,
+                sourceVisibility, statistics, publishedAt, createdAt, updatedAt, version);
     }
 
     /**
@@ -68,8 +103,8 @@ public record ProjectDetailResult(
             long version
     ) {
         this(id, owner, category, subCategory, title, slug, shortDescription, description, thumbnailUrl,
-                List.of(), demoUrl, null, techStack, features, tags, status, visibility, sourceVisibility,
-                statistics, publishedAt, createdAt, updatedAt, version);
+                List.of(), List.of(), demoUrl, null, techStack, features, tags, status, visibility,
+                sourceVisibility, statistics, publishedAt, createdAt, updatedAt, version);
     }
 
     /**
@@ -87,6 +122,7 @@ public record ProjectDetailResult(
                 description,
                 thumbnailUrl,
                 images,
+                media,
                 demoUrl,
                 githubUrl,
                 techStack,
@@ -113,6 +149,10 @@ public record ProjectDetailResult(
     }
 
     public record Tag(UUID id, String slug, String displayName) {
+    }
+
+    /** One image, GIF or video in display order; {@code mediaType} is IMAGE, GIF or VIDEO. */
+    public record Media(UUID id, String mediaType, String url, int sortOrder) {
     }
 
     public record Statistics(long viewCount, long likeCount, long commentCount) {

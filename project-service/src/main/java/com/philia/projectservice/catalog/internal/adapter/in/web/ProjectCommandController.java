@@ -3,6 +3,7 @@ package com.philia.projectservice.catalog.internal.adapter.in.web;
 import com.philia.projectservice.catalog.api.CreateProjectUseCase;
 import com.philia.projectservice.catalog.api.DeleteProjectCommand;
 import com.philia.projectservice.catalog.api.DeleteProjectUseCase;
+import com.philia.projectservice.catalog.api.ProjectMediaUpload;
 import com.philia.projectservice.catalog.api.ReplaceProjectTagsUseCase;
 import com.philia.projectservice.catalog.api.UpdateProjectUseCase;
 import com.philia.projectservice.catalog.api.PublishProjectCommand;
@@ -13,6 +14,7 @@ import com.philia.projectservice.catalog.internal.adapter.in.web.documentation.R
 import com.philia.projectservice.catalog.internal.adapter.in.web.documentation.UpdateProjectApiDocumentation;
 import com.philia.projectservice.catalog.internal.adapter.in.web.documentation.PublishProjectApiDocumentation;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.request.CreateProjectRequest;
+import com.philia.projectservice.catalog.internal.adapter.in.web.dto.request.PublishProjectRequest;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.request.ReplaceProjectTagsRequest;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.request.UpdateProjectRequest;
 import com.philia.projectservice.catalog.internal.adapter.in.web.dto.response.ProjectDetailResponse;
@@ -21,9 +23,11 @@ import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.CreatePr
 import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.ProjectDetailWebMapper;
 import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.ProjectTagsWebMapper;
 import com.philia.projectservice.catalog.internal.adapter.in.web.mapper.UpdateProjectWebMapper;
+import com.philia.projectservice.catalog.internal.domain.ProjectVisibility;
 import com.philia.projectservice.catalog.internal.domain.exception.InvalidProjectException;
 import com.philia.projectservice.shared.web.ApiResponse;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,9 +36,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -87,9 +94,13 @@ public final class ProjectCommandController implements CreateProjectApiDocumenta
     @Override
     public ResponseEntity<ApiResponse<ProjectDetailResponse>> publishProject(
             @PathVariable UUID projectId,
-            @RequestHeader("If-Match") String ifMatch
+            @RequestHeader("If-Match") String ifMatch,
+            @Valid @RequestBody(required = false) PublishProjectRequest request
     ) {
-        var result = publishProjectUseCase.publishProject(new PublishProjectCommand(projectId, parseEtag(ifMatch)));
+        // A missing body or visibility falls back to PRIVATE.
+        var visibility = ProjectVisibility.fromNullable(request == null ? null : request.visibility());
+        var result = publishProjectUseCase.publishProject(
+                new PublishProjectCommand(projectId, parseEtag(ifMatch), visibility));
         var response = projectDetailWebMapper.toResponse(result);
 
         return ResponseEntity.ok()
@@ -121,12 +132,20 @@ public final class ProjectCommandController implements CreateProjectApiDocumenta
                 ));
     }
 
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Override
     public ResponseEntity<ApiResponse<ProjectDetailResponse>> createProject(
-            @Valid @RequestBody CreateProjectRequest request
+            @Valid @RequestPart("project") CreateProjectRequest request,
+            // Optional at the HTTP level so a missing or short list is reported by the media policy
+            // with the same "images" error as any other count violation.
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            @RequestPart(value = "video", required = false) MultipartFile video
     ) {
-        var command = createProjectWebMapper.toCommand(request);
+        var command = createProjectWebMapper.toCommand(
+                request,
+                images == null ? null : images.stream().map(ProjectCommandController::toUpload).toList(),
+                video == null ? null : toUpload(video)
+        );
         var result = createProjectUseCase.create(command);
         var response = projectDetailWebMapper.toResponse(result);
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -162,6 +181,10 @@ public final class ProjectCommandController implements CreateProjectApiDocumenta
                         "Project tags replaced successfully.",
                         response
                 ));
+    }
+
+    private static ProjectMediaUpload toUpload(MultipartFile file) {
+        return new ProjectMediaUpload(file.getOriginalFilename(), file.getSize(), file::getInputStream);
     }
 
     private static long parseEtag(String ifMatch) {

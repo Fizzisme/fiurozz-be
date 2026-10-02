@@ -3,31 +3,45 @@ package com.philia.projectservice.catalog.internal.application;
 import com.philia.projectservice.ProjectServiceApplication;
 import com.philia.projectservice.catalog.api.CreateProjectCommand;
 import com.philia.projectservice.catalog.api.CreateProjectUseCase;
+import com.philia.projectservice.catalog.api.ProjectMediaUpload;
 import com.philia.projectservice.catalog.internal.application.port.out.CatalogBrowseQuery;
+import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaStorage;
 import com.philia.projectservice.shared.security.GatewayHeaderAuthenticationFilter;
 import com.philia.projectservice.shared.security.GatewayActorPrincipal;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -41,6 +55,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 )
 @Transactional
 class CreateProjectPostgresIntegrationTest {
+
+    private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D};
 
     @Autowired
     private CreateProjectUseCase createProjectUseCase;
@@ -59,6 +75,15 @@ class CreateProjectPostgresIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    // Replaces MinIO: these tests verify persistence, not object storage.
+    @MockitoBean
+    private ProjectMediaStorage mediaStorage;
+
+    @BeforeEach
+    void stubMediaStorage() {
+        when(mediaStorage.publicUrl(any())).thenAnswer(invocation -> "http://minio.test/" + invocation.getArgument(0));
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -85,7 +110,8 @@ class CreateProjectPostgresIntegrationTest {
                 "PRIVATE",
                 List.of("Java", "Spring Boot"),
                 List.of("Project Catalog"),
-                List.of(tagId)
+                List.of(tagId),
+                images(), null
         ));
 
         var projectCount = ((Number) entityManager.createNativeQuery("""
@@ -115,6 +141,31 @@ class CreateProjectPostgresIntegrationTest {
         assertThat(projectCount).isEqualTo(1);
         assertThat(tagCount).isEqualTo(1);
         assertThat(result.tags()).singleElement().satisfies(tag -> assertThat(tag.id()).isEqualTo(tagId));
+
+        var media = jdbcClient.sql("""
+                        SELECT media_type, media_url, object_key, content_type, size_bytes
+                        FROM project_media
+                        WHERE project_id = :projectId
+                        ORDER BY sort_order
+                        """)
+                .param("projectId", result.id())
+                .query((rs, rowNum) -> List.of(rs.getString(1), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getString(5)))
+                .list();
+        var thumbnailUrl = jdbcClient.sql("SELECT thumbnail_url FROM projects WHERE id = :projectId")
+                .param("projectId", result.id())
+                .query(String.class)
+                .single();
+
+        assertThat(media).hasSize(3).allSatisfy(row -> {
+            assertThat(row.get(0)).isEqualTo("IMAGE");
+            assertThat(row.get(2)).startsWith("projects/" + result.id() + "/").endsWith(".png");
+            assertThat(row.get(1)).isEqualTo("http://minio.test/" + row.get(2));
+            assertThat(row.get(3)).isEqualTo("image/png");
+            assertThat(row.get(4)).isEqualTo(String.valueOf(PNG.length));
+        });
+        assertThat(thumbnailUrl).isEqualTo(media.getFirst().get(1));
+        verify(mediaStorage, times(3)).put(any(), eq("image/png"), eq((long) PNG.length), any());
     }
 
     @Test
@@ -160,14 +211,18 @@ class CreateProjectPostgresIntegrationTest {
                 }
                 """.formatted(subCategoryId, suffix, tagId);
 
-        var mvcResult = mockMvc().perform(post("/")
+        var mvcResult = mockMvc().perform(multipart("/")
+                        .file(projectPart(requestBody))
+                        .file(imagePart())
+                        .file(imagePart())
+                        .file(imagePart())
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
-                        .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner"))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.media.length()").value(3))
+                .andExpect(jsonPath("$.data.thumbnailUrl").value(startsWith("http://minio.test/projects/")))
                 .andExpect(header().exists("Location"))
                 .andExpect(header().string("ETag", "\"0\""))
                 .andExpect(jsonPath("$.success").value(true))
@@ -203,13 +258,12 @@ class CreateProjectPostgresIntegrationTest {
                 }
                 """.formatted(UUID.randomUUID());
 
-        mockMvc().perform(post("/")
+        mockMvc().perform(multipart("/")
+                        .file(projectPart(requestBody))
                         .header("Authorization", "Bearer test-token")
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, UUID.randomUUID())
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
-                        .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(requestBody))
+                        .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.githubUrl").value("githubUrl must be a valid GitHub HTTPS URL"));
     }
@@ -236,7 +290,8 @@ class CreateProjectPostgresIntegrationTest {
                 "PRIVATE",
                 List.of("Java"),
                 List.of("Project Catalog"),
-                List.of(originalTagId)
+                List.of(originalTagId),
+                images(), null
         ));
 
         mockMvc().perform(put("/{projectId}/tags", created.id())
@@ -280,7 +335,8 @@ class CreateProjectPostgresIntegrationTest {
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com", null,
-                "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
+                "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId),
+                images(), null
         ));
 
         mockMvc().perform(patch("/{projectId}", created.id())
@@ -320,7 +376,8 @@ class CreateProjectPostgresIntegrationTest {
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com", null,
-                "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
+                "PRIVATE", List.of("Java"), List.of("Project Catalog"), List.of(tagId),
+                images(), null
         ));
 
         mockMvc().perform(delete("/{projectId}", created.id())
@@ -356,7 +413,8 @@ class CreateProjectPostgresIntegrationTest {
         var created = createProjectUseCase.create(new CreateProjectCommand(
                 subCategoryId, "Fiurozz Backend " + suffix,
                 "A project catalog backend", "The complete project description", "https://demo.example.com", null,
-                "PUBLIC", List.of("Java"), List.of("Project Catalog"), List.of(tagId)
+                "PUBLIC", List.of("Java"), List.of("Project Catalog"), List.of(tagId),
+                images(), null
         ));
 
         mockMvc().perform(post("/{projectId}/publish", created.id())
@@ -364,12 +422,15 @@ class CreateProjectPostgresIntegrationTest {
                         .header(GatewayHeaderAuthenticationFilter.USER_ID_HEADER, ownerId)
                         .header(GatewayHeaderAuthenticationFilter.USER_EMAIL_HEADER, "owner@example.com")
                         .header(GatewayHeaderAuthenticationFilter.USER_DISPLAY_NAME_HEADER, "Project Owner")
-                        .header("If-Match", "\"0\""))
+                        .header("If-Match", "\"0\"")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"visibility\":\"UNLISTED\"}"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("ETag", "\"1\""))
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("PROJECT_PUBLISHED"))
                 .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.visibility").value("UNLISTED"))
                 .andExpect(jsonPath("$.data.publishedAt").exists())
                 .andExpect(jsonPath("$.data.version").value(1));
 
@@ -469,6 +530,23 @@ class CreateProjectPostgresIntegrationTest {
                 .param("displayName", "Tag " + suffix)
                 .param("normalizedName", "tag-" + suffix)
                 .update();
+    }
+
+    private static MockMultipartFile projectPart(String json) {
+        return new MockMultipartFile("project", "", MediaType.APPLICATION_JSON_VALUE,
+                json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static MockMultipartFile imagePart() {
+        return new MockMultipartFile("images", "image.png", MediaType.IMAGE_PNG_VALUE, PNG);
+    }
+
+    private static List<ProjectMediaUpload> images() {
+        return List.of(png(), png(), png());
+    }
+
+    private static ProjectMediaUpload png() {
+        return new ProjectMediaUpload("image.png", PNG.length, () -> new ByteArrayInputStream(PNG));
     }
 
     private static void authenticate(UUID ownerId) {

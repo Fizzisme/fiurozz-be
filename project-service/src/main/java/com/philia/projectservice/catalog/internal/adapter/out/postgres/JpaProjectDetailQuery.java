@@ -51,6 +51,15 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
                 .sorted(Comparator.comparing(ProjectDetailResult.Tag::displayName)
                         .thenComparing(ProjectDetailResult.Tag::id))
                 .toList();
+        var media = mediaRepository.findMediaByProjectId(project.getId()).stream()
+                .map(row -> new ProjectDetailResult.Media(
+                        row.getId(), row.getMediaType(), row.getMediaUrl(), row.getSortOrder()))
+                .toList();
+        // images keeps its original meaning: IMAGE media only, without GIFs or videos.
+        var images = media.stream()
+                .filter(item -> "IMAGE".equals(item.mediaType()))
+                .map(ProjectDetailResult.Media::url)
+                .toList();
 
         return new ProjectDetailResult(
                 project.getId(),
@@ -65,7 +74,8 @@ public class JpaProjectDetailQuery implements ProjectDetailQuery {
                 project.getShortDescription(),
                 project.getDescription(),
                 project.getThumbnailUrl(),
-                mediaRepository.findImageUrlsByProjectId(project.getId()),
+                images,
+                media,
                 project.getDemoUrl(),
                 repositoryLinkRepository.findPrimaryRepositoryUrl(project.getId()).orElse(project.getRepositoryUrl()),
                 project.getTechStack(),
