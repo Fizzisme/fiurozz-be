@@ -14,6 +14,7 @@ import com.philia.projectservice.catalog.internal.application.port.out.CurrentAc
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectDetailQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectPublicationGateway;
 import com.philia.projectservice.catalog.internal.domain.ProjectSlug;
+import com.philia.projectservice.catalog.internal.domain.ProjectVisibility;
 import com.philia.projectservice.catalog.internal.domain.exception.InvalidProjectException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,7 +78,9 @@ public class PublishProjectHandler implements PublishProjectUseCase {
         validateProjectContent(project);
         validateCatalogReferences(project);
         if (!projectPublicationGateway.publishIfCurrent(
-                command.projectId(), actor.id(), command.expectedVersion(), clock.instant())) {
+                command.projectId(), actor.id(), command.expectedVersion(),
+                command.visibility() == null ? ProjectVisibility.PRIVATE : command.visibility(),
+                clock.instant())) {
             throw new ProjectStaleVersionException();
         }
         return projectDetailQuery.findActiveById(command.projectId()).orElseThrow(ProjectNotFoundException::new);

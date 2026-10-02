@@ -62,6 +62,12 @@ class GetProjectByIdPostgresIntegrationTest {
                 .andExpect(jsonPath("$.data.tags[0].id").value(fixture.tagId().toString()))
                 .andExpect(jsonPath("$.data.images[0]").value("https://cdn.example.com/project-first.png"))
                 .andExpect(jsonPath("$.data.images[1]").value("https://cdn.example.com/project-second.png"))
+                .andExpect(jsonPath("$.data.images.length()").value(2))
+                .andExpect(jsonPath("$.data.media.length()").value(3))
+                .andExpect(jsonPath("$.data.media[0].mediaType").value("IMAGE"))
+                .andExpect(jsonPath("$.data.media[0].sortOrder").value(10))
+                .andExpect(jsonPath("$.data.media[2].mediaType").value("VIDEO"))
+                .andExpect(jsonPath("$.data.media[2].url").value("https://cdn.example.com/project-demo.mp4"))
                 .andExpect(jsonPath("$.data.githubUrl").value("https://github.com/philia/project"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.visibility").value("PRIVATE"))
@@ -214,10 +220,12 @@ class GetProjectByIdPostgresIntegrationTest {
                         INSERT INTO project_media (id, project_id, media_type, media_url, sort_order)
                         VALUES
                             (:firstId, :projectId, 'IMAGE', 'https://cdn.example.com/project-first.png', 10),
-                            (:secondId, :projectId, 'IMAGE', 'https://cdn.example.com/project-second.png', 20)
+                            (:secondId, :projectId, 'IMAGE', 'https://cdn.example.com/project-second.png', 20),
+                            (:videoId, :projectId, 'VIDEO', 'https://cdn.example.com/project-demo.mp4', 30)
                         """)
                 .param("firstId", UUID.randomUUID())
                 .param("secondId", UUID.randomUUID())
+                .param("videoId", UUID.randomUUID())
                 .param("projectId", fixture.projectId())
                 .update();
 

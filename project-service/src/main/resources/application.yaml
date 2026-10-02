@@ -16,9 +16,25 @@ spring:
   batch:
     jdbc:
       initialize-schema: never
+  servlet:
+    multipart:
+      # Create project: up to 5 images of 5 MB and one 50 MB video.
+      max-file-size: 50MB
+      max-request-size: 80MB
 
 server:
   port: ${SERVER_PORT:8086}
+
+storage:
+  s3:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    region: ${S3_REGION:us-east-1}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+    bucket: ${S3_BUCKET:project-media}
+    # Must be reachable from the browser; used to build stored media URLs.
+    public-base-url: ${S3_PUBLIC_BASE_URL:http://localhost:9000}
+    auto-create-bucket: ${S3_AUTO_CREATE_BUCKET:true}
 
 springdoc:
   api-docs:

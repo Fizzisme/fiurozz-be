@@ -8,15 +8,18 @@ import com.philia.projectservice.catalog.internal.application.exception.SubCateg
 import com.philia.projectservice.catalog.internal.application.exception.TagsUnavailableException;
 import com.philia.projectservice.catalog.internal.application.port.out.CatalogReferenceQuery;
 import com.philia.projectservice.catalog.internal.application.port.out.CurrentActor;
+import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaRepository.NewProjectMedia;
+import com.philia.projectservice.catalog.internal.application.port.out.ProjectMediaStorage;
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectRepository;
-import com.philia.projectservice.catalog.internal.application.port.out.ProjectTagRepository;
 import com.philia.projectservice.catalog.internal.domain.Project;
+import com.philia.projectservice.catalog.internal.domain.ProjectMediaType;
 import com.philia.projectservice.catalog.internal.domain.ProjectSlug;
 import com.philia.projectservice.catalog.internal.domain.ProjectVisibility;
 import com.philia.projectservice.catalog.internal.domain.exception.InvalidProjectException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -35,26 +38,32 @@ public class CreateProjectHandler implements CreateProjectUseCase {
 
     private final CurrentActor currentActor;
     private final ProjectRepository projectRepository;
-    private final ProjectTagRepository projectTagRepository;
     private final CatalogReferenceQuery catalogReferenceQuery;
+    private final ProjectMediaStorage mediaStorage;
+    private final CreateProjectWriter writer;
     private final Clock clock;
 
     public CreateProjectHandler(
             CurrentActor currentActor,
             ProjectRepository projectRepository,
-            ProjectTagRepository projectTagRepository,
             CatalogReferenceQuery catalogReferenceQuery,
+            ProjectMediaStorage mediaStorage,
+            CreateProjectWriter writer,
             Clock clock
     ) {
         this.currentActor = currentActor;
         this.projectRepository = projectRepository;
-        this.projectTagRepository = projectTagRepository;
         this.catalogReferenceQuery = catalogReferenceQuery;
+        this.mediaStorage = mediaStorage;
+        this.writer = writer;
         this.clock = clock;
     }
 
+    /**
+     * Not transactional: media is uploaded first, then {@link CreateProjectWriter} persists the project
+     * in its own transaction. Uploaded objects are deleted again if anything after the upload fails.
+     */
     @Override
-    @Transactional
     public ProjectDetailResult create(CreateProjectCommand command) {
         if (command == null) {
             throw new InvalidProjectException("Create project command is required");
@@ -64,6 +73,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
         var slug = ProjectSlug.fromTitle(command.title());
         var visibility = ProjectVisibility.fromNullable(command.visibility());
         var tagIds = uniqueTagIds(command.tagIds());
+        var validatedMedia = ProjectMediaPolicy.validate(command.images(), command.video());
 
         var subCategory = catalogReferenceQuery.findActiveSubCategory(command.subCategoryId())
                 .orElseThrow(() -> new SubCategoryUnavailableException(command.subCategoryId()));
@@ -73,9 +83,12 @@ public class CreateProjectHandler implements CreateProjectUseCase {
             throw new ProjectSlugAlreadyExistsException(slug.value());
         }
 
+        var projectId = UUID.randomUUID();
+        var media = planStorage(projectId, validatedMedia);
         var now = clock.instant();
+        // Built before uploading so invalid project fields fail without touching storage.
         var project = Project.create(
-                UUID.randomUUID(),
+                projectId,
                 actor.id(),
                 actor.displayName(),
                 actor.avatarUrl(),
@@ -84,6 +97,7 @@ public class CreateProjectHandler implements CreateProjectUseCase {
                 slug,
                 command.shortDescription(),
                 command.description(),
+                media.getFirst().url(),
                 command.demoUrl(),
                 command.githubUrl(),
                 normalizedItems(command.techStack(), MAX_TECH_STACK_ITEMS, 60, true, "techStack"),
@@ -92,10 +106,59 @@ public class CreateProjectHandler implements CreateProjectUseCase {
                 now
         );
 
-        projectRepository.save(project);
-        projectTagRepository.addAll(project.id(), tagIds);
+        upload(validatedMedia, media);
+        try {
+            writer.write(project, tagIds, media);
+        } catch (RuntimeException exception) {
+            discard(media, exception);
+            throw exception;
+        }
 
-        return toResult(project, subCategory, tags);
+        return toResult(project, subCategory, tags, media);
+    }
+
+    private List<NewProjectMedia> planStorage(UUID projectId, List<ProjectMediaPolicy.ValidatedMedia> validated) {
+        return validated.stream()
+                .map(item -> {
+                    var objectKey = "projects/" + projectId + "/" + UUID.randomUUID() + "." + item.extension();
+                    return new NewProjectMedia(
+                            UUID.randomUUID(),
+                            item.type(),
+                            mediaStorage.publicUrl(objectKey),
+                            objectKey,
+                            item.contentType(),
+                            item.upload().sizeBytes(),
+                            item.sortOrder()
+                    );
+                })
+                .toList();
+    }
+
+    private void upload(List<ProjectMediaPolicy.ValidatedMedia> validated, List<NewProjectMedia> media) {
+        var uploaded = new ArrayList<NewProjectMedia>(media.size());
+        try {
+            for (var index = 0; index < media.size(); index++) {
+                var target = media.get(index);
+                try (var content = validated.get(index).upload().content().open()) {
+                    mediaStorage.put(target.objectKey(), target.contentType(), target.sizeBytes(), content);
+                } catch (IOException exception) {
+                    throw new UncheckedIOException("Failed to read uploaded media", exception);
+                }
+                uploaded.add(target);
+            }
+        } catch (RuntimeException exception) {
+            discard(uploaded, exception);
+            throw exception;
+        }
+    }
+
+    private void discard(List<NewProjectMedia> media, RuntimeException failure) {
+        try {
+            mediaStorage.deleteAll(media.stream().map(NewProjectMedia::objectKey).toList());
+        } catch (RuntimeException cleanupFailure) {
+            // Keep the original error; the orphaned objects stay in storage.
+            failure.addSuppressed(cleanupFailure);
+        }
     }
 
     private List<CatalogReferenceQuery.TagReference> loadAllActiveTags(Set<UUID> tagIds) {
@@ -166,7 +229,8 @@ public class CreateProjectHandler implements CreateProjectUseCase {
     private static ProjectDetailResult toResult(
             Project project,
             CatalogReferenceQuery.SubCategoryReference subCategory,
-            List<CatalogReferenceQuery.TagReference> tags
+            List<CatalogReferenceQuery.TagReference> tags,
+            List<NewProjectMedia> media
     ) {
         var category = subCategory.category();
         return new ProjectDetailResult(
@@ -194,7 +258,15 @@ public class CreateProjectHandler implements CreateProjectUseCase {
                 project.shortDescription(),
                 project.description(),
                 project.thumbnailUrl(),
-                List.of(),
+                // Same rule as the detail query: only IMAGE media are listed in images.
+                media.stream()
+                        .filter(item -> item.type() == ProjectMediaType.IMAGE)
+                        .map(NewProjectMedia::url)
+                        .toList(),
+                media.stream()
+                        .map(item -> new ProjectDetailResult.Media(
+                                item.id(), item.type().name(), item.url(), item.sortOrder()))
+                        .toList(),
                 project.demoUrl(),
                 project.repositoryUrl(),
                 project.techStack(),

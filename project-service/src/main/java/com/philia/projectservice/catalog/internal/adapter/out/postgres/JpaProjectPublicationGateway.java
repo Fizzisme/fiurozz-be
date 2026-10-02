@@ -1,6 +1,7 @@
 package com.philia.projectservice.catalog.internal.adapter.out.postgres;
 
 import com.philia.projectservice.catalog.internal.application.port.out.ProjectPublicationGateway;
+import com.philia.projectservice.catalog.internal.domain.ProjectVisibility;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -38,7 +39,9 @@ public class JpaProjectPublicationGateway implements ProjectPublicationGateway {
     }
 
     @Override
-    public boolean publishIfCurrent(UUID projectId, UUID ownerId, long expectedVersion, Instant publishedAt) {
-        return projectRepository.publishDraftIfCurrent(projectId, ownerId, expectedVersion, publishedAt) == 1;
+    public boolean publishIfCurrent(UUID projectId, UUID ownerId, long expectedVersion,
+                                    ProjectVisibility visibility, Instant publishedAt) {
+        return projectRepository.publishDraftIfCurrent(
+                projectId, ownerId, expectedVersion, visibility.name(), publishedAt) == 1;
     }
 }
