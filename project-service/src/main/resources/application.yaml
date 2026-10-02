@@ -16,6 +16,19 @@ spring:
   batch:
     jdbc:
       initialize-schema: never
+  rabbitmq:
+    # Same variable and default as user-service. Only consumes user.events.
+    uri: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
+    listener:
+      simple:
+        # Failed messages are retried in-process, then rejected without requeue so the
+        # queue's dead-letter settings park them on the failed queue.
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 2s
+          multiplier: 2.0
   servlet:
     multipart:
       # Create project: up to 5 images of 5 MB and one 50 MB video.

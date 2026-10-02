@@ -10,6 +10,8 @@ services:
       SERVER_PORT: 8086
       DATABASE_URL: ${DATABASE_URL}
       SPRING_DATA_REDIS_HOST: redis
+      # Reached by service name from inside Docker; owner snapshots arrive over user.events.
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://guest:guest@rabbitmq:5672}
       # Inside Docker, MinIO is reached by service name; localhost would be this container.
       S3_ENDPOINT: http://minio:9000
       S3_REGION: ${S3_REGION:-us-east-1}
@@ -25,4 +27,6 @@ services:
       redis:
         condition: service_healthy
       minio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy

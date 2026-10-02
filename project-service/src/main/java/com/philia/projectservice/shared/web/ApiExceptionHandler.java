@@ -2,6 +2,7 @@ package com.philia.projectservice.shared.web;
 
 import com.philia.projectservice.catalog.internal.application.exception.CurrentActorUnavailableException;
 import com.philia.projectservice.catalog.internal.application.exception.MediaStorageUnavailableException;
+import com.philia.projectservice.catalog.internal.application.exception.OwnerProfileUnavailableException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectMediaValidationException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectSlugAlreadyExistsException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectNotFoundException;
@@ -79,6 +80,11 @@ public final class ApiExceptionHandler {
     @ExceptionHandler(CurrentActorUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleCurrentActor(CurrentActorUnavailableException exception) {
         return error(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", exception.getMessage());
+    }
+
+    @ExceptionHandler(OwnerProfileUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOwnerProfileUnavailable(OwnerProfileUnavailableException exception) {
+        return error(HttpStatus.CONFLICT, "OWNER_PROFILE_NOT_READY", exception.getMessage());
     }
 
     @ExceptionHandler(ProjectSlugAlreadyExistsException.class)

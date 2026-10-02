@@ -195,6 +195,7 @@ class CreateProjectPostgresIntegrationTest {
         var tagId = UUID.randomUUID();
         var suffix = UUID.randomUUID().toString();
         insertReferences(categoryId, subCategoryId, tagId, suffix);
+        insertOwnerSnapshot(ownerId);
 
         var requestBody = """
                 {
@@ -228,6 +229,8 @@ class CreateProjectPostgresIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("PROJECT_CREATED"))
                 .andExpect(jsonPath("$.data.owner.id").value(ownerId.toString()))
+                .andExpect(jsonPath("$.data.owner.displayName").value("Snapshot Owner"))
+                .andExpect(jsonPath("$.data.owner.avatarUrl").value("http://minio.test/avatars/owner.webp"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.visibility").value("PRIVATE"))
                 .andExpect(jsonPath("$.data.sourceVisibility").value("HIDDEN"))
@@ -549,7 +552,19 @@ class CreateProjectPostgresIntegrationTest {
         return new ProjectMediaUpload("image.png", PNG.length, () -> new ByteArrayInputStream(PNG));
     }
 
-    private static void authenticate(UUID ownerId) {
+    // Create Project reads the owner's name and avatar from owner_snapshot, which user-service events
+    // normally fill. The gateway principal carries a different name to prove the snapshot is used.
+    private void insertOwnerSnapshot(UUID ownerId) {
+        jdbcClient.sql("""
+                        INSERT INTO owner_snapshot (user_id, display_name, avatar_url)
+                        VALUES (:userId, 'Snapshot Owner', 'http://minio.test/avatars/owner.webp')
+                        """)
+                .param("userId", ownerId)
+                .update();
+    }
+
+    private void authenticate(UUID ownerId) {
+        insertOwnerSnapshot(ownerId);
         var principal = new GatewayActorPrincipal(ownerId, "owner@example.com", "Project Owner", null);
         var authentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
         SecurityContextHolder.getContext().setAuthentication(authentication);
