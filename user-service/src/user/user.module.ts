@@ -4,9 +4,10 @@ import { UserService } from './user.service.js';
 import { FollowModule } from '../follow/follow.module.js';
 import { ObjectStorageModule } from '../storage/object-storage.module.js';
 import { ProfileImageUploadRateLimitGuard } from './guards/profile-image-upload-rate-limit.guard.js';
+import { OutboxEventModule } from '../outboxEvent/outbox-event.module.js';
 
 @Module({
-    imports: [FollowModule, ObjectStorageModule],
+    imports: [FollowModule, ObjectStorageModule, OutboxEventModule],
     controllers: [UserController],
     providers: [UserService, ProfileImageUploadRateLimitGuard],
 })

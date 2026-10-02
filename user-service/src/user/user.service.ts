@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { Occupation } from '../generated/prisma/enums.js';
@@ -7,6 +7,7 @@ import { MAX_LIMIT } from '../common/constants/pagination.js';
 import { UUID_RE } from '../common/constants/uuid.js';
 import { FollowService } from '../follow/follow.service.js';
 import { ObjectStorageService, type ProfileImageKind } from '../storage/object-storage.service.js';
+import { OutboxEventService } from '../outboxEvent/outbox-event.service.js';
 
 interface GetUsersQuery {
     limit: number;
@@ -38,6 +39,7 @@ export class UserService {
         private readonly prisma: PrismaService,
         private readonly followService: FollowService,
         private readonly objectStorage: ObjectStorageService,
+        private readonly outboxEvent: OutboxEventService,
     ) {}
 
     // userId comes from the @UserId() decorator -- see its header-trust
@@ -97,7 +99,7 @@ export class UserService {
                 // Always checked, even if the body only touches `skills` --
                 // gives a uniform 404 instead of leaning on whichever of the
                 // two writes below happens to run.
-                await tx.userProfile.findUniqueOrThrow({ where: { userId } });
+                const current = await tx.userProfile.findUniqueOrThrow({ where: { userId } });
 
                 // Spreading is safe for PATCH semantics: Prisma skips any
                 // key whose value is `undefined` (fields the client didn't
@@ -105,10 +107,23 @@ export class UserService {
                 // Skipped entirely when empty -- an empty `data: {}` isn't
                 // guaranteed to be a safe no-op across Prisma versions.
                 if (Object.keys(profileFields).length > 0) {
-                    await tx.userProfile.update({
+                    const updated = await tx.userProfile.update({
                         where: { userId },
                         data: { ...profileFields },
                     });
+
+                    // auth-service owns a copy of displayName (unique there
+                    // too), so a real change is announced via the outbox in
+                    // this same transaction -- the event is never lost, and
+                    // is never sent for a rolled-back update.
+                    if (profileFields.displayName !== undefined && profileFields.displayName !== current.displayName) {
+                        await this.outboxEvent.create(
+                            userId,
+                            'user.profile.updated',
+                            { userId, displayName: updated.displayName },
+                            tx,
+                        );
+                    }
                 }
 
                 if (skills !== undefined) {
@@ -118,6 +133,14 @@ export class UserService {
         } catch (err) {
             if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
                 throw new NotFoundException('User profile not found.');
+            }
+            // displayName is the only unique column this route can change.
+            if (
+                err instanceof Prisma.PrismaClientKnownRequestError &&
+                err.code === 'P2002' &&
+                dto.displayName !== undefined
+            ) {
+                throw new ConflictException('Display name is already taken.');
             }
             throw err;
         }

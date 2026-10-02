@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../generated/prisma/client.js';
 import { UserService } from './user.service.js';
 
 type AsyncMock = (...args: unknown[]) => Promise<unknown>;
@@ -15,7 +16,7 @@ describe('UserService profile image uploads', () => {
     const objectStorage = {
         uploadProfileImage: jest.fn<AsyncMock>(),
     };
-    const service = new UserService(prisma as never, {} as never, objectStorage as never);
+    const service = new UserService(prisma as never, {} as never, objectStorage as never, {} as never);
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -116,5 +117,61 @@ describe('UserService profile image uploads', () => {
             data: { coverUrl: null, coverObjectKey: null, coverVariants: expect.anything() },
         });
         expect(objectStorage.uploadProfileImage).not.toHaveBeenCalled();
+    });
+});
+
+describe('UserService updateProfile displayName', () => {
+    const tx = {
+        userProfile: {
+            findUniqueOrThrow: jest.fn<AsyncMock>(),
+            update: jest.fn<AsyncMock>(),
+        },
+    };
+    const prisma = {
+        $transaction: jest.fn<AsyncMock>(),
+    };
+    const outboxEvent = {
+        create: jest.fn<AsyncMock>(),
+    };
+    const service = new UserService(prisma as never, {} as never, {} as never, outboxEvent as never);
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        prisma.$transaction.mockImplementation((callback: unknown) => (callback as (t: unknown) => Promise<unknown>)(tx));
+        tx.userProfile.findUniqueOrThrow.mockResolvedValue({ userId: 'user-1', displayName: 'old-name' });
+        tx.userProfile.update.mockResolvedValue({ userId: 'user-1', displayName: 'new-name', avatarUrl: null });
+        jest.spyOn(service, 'getMe').mockResolvedValue({} as never);
+    });
+
+    it('writes a user.profile.updated outbox event in the same transaction when displayName changes', async () => {
+        await service.updateProfile('user-1', { displayName: 'new-name' });
+
+        expect(outboxEvent.create).toHaveBeenCalledWith(
+            'user-1',
+            'user.profile.updated',
+            { userId: 'user-1', displayName: 'new-name' },
+            tx,
+        );
+    });
+
+    it('does not write an outbox event when displayName is unchanged or not sent', async () => {
+        await service.updateProfile('user-1', { displayName: 'old-name' });
+        await service.updateProfile('user-1', { bio: 'hello' });
+
+        expect(outboxEvent.create).not.toHaveBeenCalled();
+    });
+
+    it('maps a unique violation on displayName to a conflict', async () => {
+        tx.userProfile.update.mockRejectedValue(
+            new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+                code: 'P2002',
+                clientVersion: 'test',
+            }),
+        );
+
+        await expect(service.updateProfile('user-1', { displayName: 'taken' })).rejects.toBeInstanceOf(
+            ConflictException,
+        );
+        expect(outboxEvent.create).not.toHaveBeenCalled();
     });
 });

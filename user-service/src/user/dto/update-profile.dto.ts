@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
 import { Gender, Occupation } from '../../generated/prisma/enums.js';
 
 export class UpdateProfileDto {
@@ -6,6 +6,12 @@ export class UpdateProfileDto {
     @IsString()
     @MaxLength(150)
     fullName?: string;
+
+    @IsOptional()
+    @IsString()
+    @MinLength(3)
+    @MaxLength(100)
+    displayName?: string;
 
     @IsOptional()
     @IsString()
