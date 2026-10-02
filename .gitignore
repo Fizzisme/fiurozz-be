@@ -1,2 +1,6 @@
 /.idea
 /api-gateway/logs
+
+/graphify-out
+/ref
+/.vscode

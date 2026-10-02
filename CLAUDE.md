@@ -47,6 +47,10 @@ These are the pieces that must stay in sync **by hand** across repos/services. T
 - **Prisma:** generated client lives in `src/generated/prisma/` (not `node_modules`) per each service's `prisma/schema.prisma` `generator client { output = ... }`. Regenerate with `npx prisma generate` after schema changes; never hand-edit files under `src/generated/`.
 - **DTO validation:** both NestJS services enable a global `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true, transform: true`. New DTO fields need explicit `class-validator` decorators or requests will be rejected.
 
+## Exploring the codebase
+
+A knowledge graph of this repo lives in `graphify-out/`. Before exploring for a new feature or a cross-file question, read `graphify-out/GRAPH_REPORT.md` and try `/graphify query "<question>"` before broad grepping. Treat it as a map, not the truth: it reflects the code at the last scan, so confirm in the real files before editing, and re-run `/graphify` (update) after large changes.
+
 ## Working agreements for AI sessions
 
 - Each service's `PROBLEMS.md` is the current issue tracker for that service; the root `PROBLEMS.md` covers cross-cutting/architecture issues. Check the relevant one before assuming something is a fresh discovery — and update it if you fix or discover something.
