@@ -195,12 +195,21 @@ export class UserService {
         const stored = await this.objectStorage.uploadProfileImage(kind, file, maxBytes);
         const variants = stored.variants as unknown as Prisma.InputJsonValue;
 
-        await this.prisma.userProfile.update({
-            where: { userId },
-            data:
-                kind === 'avatar'
-                    ? { avatarUrl: stored.url, avatarObjectKey: stored.key, avatarVariants: variants }
-                    : { coverUrl: stored.url, coverObjectKey: stored.key, coverVariants: variants },
+        await this.prisma.$transaction(async (tx) => {
+            await tx.userProfile.update({
+                where: { userId },
+                data:
+                    kind === 'avatar'
+                        ? { avatarUrl: stored.url, avatarObjectKey: stored.key, avatarVariants: variants }
+                        : { coverUrl: stored.url, coverObjectKey: stored.key, coverVariants: variants },
+            });
+
+            // Other services keep a copy of the avatar URL; announce it in
+            // the same transaction so the event is never lost or sent for a
+            // rolled-back update.
+            if (kind === 'avatar') {
+                await this.outboxEvent.create(userId, 'user.avatar.updated', { userId, avatarUrl: stored.url }, tx);
+            }
         });
 
         return {
@@ -212,12 +221,20 @@ export class UserService {
     }
 
     private async deleteProfileImage(userId: string, kind: ProfileImageKind) {
-        const result = await this.prisma.userProfile.updateMany({
-            where: { userId },
-            data:
-                kind === 'avatar'
-                    ? { avatarUrl: null, avatarObjectKey: null, avatarVariants: Prisma.DbNull }
-                    : { coverUrl: null, coverObjectKey: null, coverVariants: Prisma.DbNull },
+        const result = await this.prisma.$transaction(async (tx) => {
+            const updated = await tx.userProfile.updateMany({
+                where: { userId },
+                data:
+                    kind === 'avatar'
+                        ? { avatarUrl: null, avatarObjectKey: null, avatarVariants: Prisma.DbNull }
+                        : { coverUrl: null, coverObjectKey: null, coverVariants: Prisma.DbNull },
+            });
+
+            if (updated.count > 0 && kind === 'avatar') {
+                await this.outboxEvent.create(userId, 'user.avatar.updated', { userId, avatarUrl: null }, tx);
+            }
+
+            return updated;
         });
         if (result.count === 0) {
             throw new NotFoundException('User profile not found.');
