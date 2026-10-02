@@ -22,6 +22,13 @@ func registerProxyRoutes(
 			manager,
 		)
 
+		// Exact prefix too: "/api/projects" alone would not match
+		// "/api/projects/*path", and Gin would answer 307.
+		r.Any(
+			route.Prefix,
+			handlers...,
+		)
+
 		r.Any(
 			route.Prefix+"/*path",
 			handlers...,
