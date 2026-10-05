@@ -115,7 +115,7 @@ class GetProjectByIdPostgresIntegrationTest {
     void publishesGetProjectByIdOpenApiDocumentation() throws Exception {
         mockMvc().perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paths.length()").value(13))
+                .andExpect(jsonPath("$.paths.length()").value(19))
                 .andExpect(jsonPath("$['paths']['/{projectId}']['get']['operationId']")
                         .value("getProjectById"))
                 .andExpect(jsonPath("$['paths']['/{projectId}']['get']['responses']['200']")

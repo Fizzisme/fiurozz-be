@@ -26,6 +26,7 @@ public class SecurityConfiguration {
                         .accessDeniedHandler(apiAccessDeniedHandler)
                 )
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/*/files", "/*/files/**", "/*/lease", "/*/lease/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/").authenticated()
                         .requestMatchers(HttpMethod.POST, "/*/publish").authenticated()
                         .requestMatchers(HttpMethod.POST, "/*/archive").authenticated()

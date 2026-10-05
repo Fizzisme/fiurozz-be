@@ -21,6 +21,11 @@ services:
       # Stored in project_media.media_url, so it must be reachable from the browser.
       S3_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
       S3_AUTO_CREATE_BUCKET: "true"
+      # Source code must use its own private bucket, never PROJECT_MEDIA_BUCKET.
+      FILES_S3_BUCKET: ${FILES_S3_BUCKET:-project-files}
+      FILES_S3_AUTO_CREATE_BUCKET: "${FILES_S3_AUTO_CREATE_BUCKET:-true}"
+      FILES_GC_ENABLED: "${FILES_GC_ENABLED:-true}"
+      FILES_GC_GRACE_HOURS: ${FILES_GC_GRACE_HOURS:-24}
     ports:
       - "${PROJECT_SERVICE_PORT:-8086}:8086"
     depends_on:

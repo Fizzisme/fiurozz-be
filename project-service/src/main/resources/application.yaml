@@ -39,6 +39,16 @@ server:
   port: ${SERVER_PORT:8086}
 
 storage:
+  files:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    region: ${S3_REGION:us-east-1}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+    # PRIVATE source-code bucket; never reuse the public project-media bucket.
+    bucket: ${FILES_S3_BUCKET:project-files}
+    auto-create-bucket: ${FILES_S3_AUTO_CREATE_BUCKET:true}
+    gc-enabled: ${FILES_GC_ENABLED:true}
+    gc-grace-hours: ${FILES_GC_GRACE_HOURS:24}
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     region: ${S3_REGION:us-east-1}

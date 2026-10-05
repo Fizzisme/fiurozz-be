@@ -5,10 +5,12 @@
 - [Domain-Driven Design for Project Service](docs/architecture/01-domain-driven-design.md)
 - [Clean Architecture for Project Service](docs/architecture/02-clean-architecture.md)
 - [Project Service architecture blueprint](docs/architecture/03-project-service-architecture-blueprint.md)
+- [Project files module decision](docs/architecture/04-project-files-contract.md)
 
 ## API design
 
 - [Phase 1 Catalog Management API](docs/catalog-management-api/README.md)
+- [Project files contract with ai-service](docs/project-files-api/README.md) — private code storage, revisions, undo and edit leases
 
 ## PostgreSQL database
 
