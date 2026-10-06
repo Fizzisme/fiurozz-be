@@ -1,6 +1,8 @@
 package com.philia.projectservice.catalog.internal.adapter.out.postgres;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +16,15 @@ interface JpaProjectCommandRepository extends JpaRepository<ProjectJpaEntity, UU
     boolean existsByOwnerIdAndSlugAndDeletedAtIsNull(UUID ownerId, String slug);
 
     Optional<ProjectJpaEntity> findByIdAndDeletedAtIsNull(UUID projectId);
+
+    /** Serializes workspace writes with catalog lifecycle changes, without changing row_version. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProjectJpaEntity p where p.id = :projectId and p.deletedAt is null")
+    Optional<ProjectJpaEntity> findFilesProjectForUpdate(@Param("projectId") UUID projectId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ProjectJpaEntity p where p.id = :projectId")
+    Optional<ProjectJpaEntity> findAnyFilesProjectForUpdate(@Param("projectId") UUID projectId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""

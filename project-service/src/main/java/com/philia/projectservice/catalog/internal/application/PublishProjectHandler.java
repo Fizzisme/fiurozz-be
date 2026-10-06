@@ -3,6 +3,8 @@ package com.philia.projectservice.catalog.internal.application;
 import com.philia.projectservice.catalog.api.ProjectDetailResult;
 import com.philia.projectservice.catalog.api.PublishProjectCommand;
 import com.philia.projectservice.catalog.api.PublishProjectUseCase;
+import com.philia.projectservice.catalog.api.ProjectPublishedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectForbiddenException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectInvalidStateException;
 import com.philia.projectservice.catalog.internal.application.exception.ProjectNotFoundException;
@@ -34,19 +36,22 @@ public class PublishProjectHandler implements PublishProjectUseCase {
     private final ProjectPublicationGateway projectPublicationGateway;
     private final ProjectDetailQuery projectDetailQuery;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public PublishProjectHandler(
             CurrentActor currentActor,
             CatalogReferenceQuery catalogReferenceQuery,
             ProjectPublicationGateway projectPublicationGateway,
             ProjectDetailQuery projectDetailQuery,
-            Clock clock
+            Clock clock,
+            ApplicationEventPublisher events
     ) {
         this.currentActor = currentActor;
         this.catalogReferenceQuery = catalogReferenceQuery;
         this.projectPublicationGateway = projectPublicationGateway;
         this.projectDetailQuery = projectDetailQuery;
         this.clock = clock;
+        this.events = events;
     }
 
     @Override
@@ -69,6 +74,8 @@ public class PublishProjectHandler implements PublishProjectUseCase {
             throw new ProjectStaleVersionException();
         }
         if ("PUBLISHED".equals(project.status())) {
+            // An explicit owner republish pins the current files, while metadata remains idempotent.
+            events.publishEvent(new ProjectPublishedEvent(command.projectId(), actor.id(), command.expectedVersion()));
             return projectDetailQuery.findActiveById(command.projectId()).orElseThrow(ProjectNotFoundException::new);
         }
         if (!"DRAFT".equals(project.status())) {
@@ -83,6 +90,7 @@ public class PublishProjectHandler implements PublishProjectUseCase {
                 clock.instant())) {
             throw new ProjectStaleVersionException();
         }
+        events.publishEvent(new ProjectPublishedEvent(command.projectId(), actor.id(), command.expectedVersion() + 1));
         return projectDetailQuery.findActiveById(command.projectId()).orElseThrow(ProjectNotFoundException::new);
     }
 

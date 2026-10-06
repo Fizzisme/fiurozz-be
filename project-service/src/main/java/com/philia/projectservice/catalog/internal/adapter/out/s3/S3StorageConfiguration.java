@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 public class S3StorageConfiguration {
 
     @Bean(destroyMethod = "close")
+    @org.springframework.context.annotation.Primary
     S3Client projectMediaS3Client(S3StorageProperties properties) {
         return S3Client.builder()
                 .endpointOverride(properties.endpoint())

@@ -23,7 +23,8 @@ public interface PublishProjectApiDocumentation {
             summary = "Publish a project",
             description = "Publishes an owned DRAFT project after validating its active subcategory and tags, "
                     + "and sets its visibility (PUBLIC, UNLISTED or PRIVATE; defaults to PRIVATE when the body or "
-                    + "field is omitted). Repeating a request with the current ETag for an already published project is idempotent."
+                    + "field is omitted). Catalog metadata stays idempotent for an already published project, "
+                    + "while an explicit owner republish pins its current files revision. Later file edits do not move that pin."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(

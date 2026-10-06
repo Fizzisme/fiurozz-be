@@ -117,7 +117,7 @@ class OwnerSnapshotPostgresIntegrationTest {
         syncHandler.avatarChanged(ownerId, "http://minio.test/avatars/new.webp");
 
         var row = jdbcClient.sql("""
-                        SELECT owner_display_name, owner_avatar_url, version
+                        SELECT owner_display_name, owner_avatar_url, row_version
                         FROM projects
                         WHERE id = :projectId
                         """)
