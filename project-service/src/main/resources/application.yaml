@@ -18,7 +18,9 @@ spring:
       initialize-schema: never
   rabbitmq:
     # Same variable and default as user-service. Only consumes user.events.
-    uri: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
+    # Spring Boot has no spring.rabbitmq.uri property (it would be ignored and the client would
+    # fall back to localhost); an amqp:// URI is accepted as an address.
+    addresses: ${RABBITMQ_URL:amqp://guest:guest@localhost:5672}
     listener:
       simple:
         # Failed messages are retried in-process, then rejected without requeue so the
